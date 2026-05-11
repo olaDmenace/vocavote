@@ -25,6 +25,18 @@ export function ElectionCreator() {
   const [isPending, startTransition] = useTransition()
   const [formError, setFormError] = useState<string | null>(null)
 
+  // Compute initial window once on mount via useState's lazy initializer —
+  // React purity rules disallow Date.now() during render or inside useMemo.
+  const [initialDefaults] = useState<CreateElectionInput>(() => {
+    const now = Date.now()
+    return {
+      title: '',
+      description: '',
+      startAt: new Date(now + 60 * 1000).toISOString(),
+      endAt: new Date(now + 7 * 24 * 3600 * 1000).toISOString(),
+    }
+  })
+
   const {
     register,
     handleSubmit,
@@ -32,12 +44,7 @@ export function ElectionCreator() {
     formState: { errors },
   } = useForm<CreateElectionInput>({
     resolver: zodResolver(createElectionSchema),
-    defaultValues: {
-      title: '',
-      description: '',
-      startAt: new Date(Date.now() + 60 * 1000).toISOString(),
-      endAt: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
-    },
+    defaultValues: initialDefaults,
   })
 
   function onSubmit(values: CreateElectionInput) {
