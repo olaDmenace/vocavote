@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireProfile } from '@/lib/auth/guards'
 import { PostCard, type FeedPost } from '@/components/feed/post-card'
 import { CommentThread, type FeedComment } from '@/components/feed/comments'
+import { PostModerationMenu } from '@/components/feed/post-moderation-menu'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ManifestoEditor } from './manifesto-editor'
 
@@ -150,7 +151,14 @@ export default async function CandidatePage({ params }: Props) {
 
         {manifestoPost ? (
           <>
-            <PostCard post={manifestoPost} />
+            <PostCard
+              post={manifestoPost}
+              actions={
+                viewer.role === 'admin' ? (
+                  <PostModerationMenu postId={manifestoPost.id} status="active" />
+                ) : undefined
+              }
+            />
             <Card>
               <CardHeader>
                 <CardTitle>Discussion</CardTitle>
@@ -161,6 +169,7 @@ export default async function CandidatePage({ params }: Props) {
               <CardContent>
                 <CommentThread
                   postId={manifestoPost.id}
+                  isAdmin={viewer.role === 'admin'}
                   initialComments={manifestoComments}
                   viewer={{
                     id: viewer.id,

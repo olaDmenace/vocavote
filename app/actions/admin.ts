@@ -8,9 +8,13 @@ import {
   createCandidateSchema,
   createElectionSchema,
   createPositionSchema,
+  moderateCommentSchema,
   moderatePostSchema,
   setElectionStatusSchema,
+  setUserActiveSchema,
+  setUserRoleSchema,
 } from '@/lib/validation/admin'
+import { isSelfTargeted } from '@/lib/auth/is-self-targeted'
 import { ok, err, type ActionResult } from '@/types/domain'
 
 async function requireAdminClient() {
@@ -240,5 +244,91 @@ export async function moderatePost(
 
   revalidatePath('/feed')
   revalidatePath('/moderation')
+  return ok(undefined)
+}
+
+export async function moderateComment(
+  input: z.input<typeof moderateCommentSchema>,
+): Promise<ActionResult> {
+  const parsed = moderateCommentSchema.safeParse(input)
+  if (!parsed.success) return err('invalid_input', parsed.error.issues[0]?.message)
+
+  const ctx = await requireAdminClient()
+  if (!ctx.ok) return err('forbidden')
+
+  const { error } = await ctx.supabase
+    .from('comments')
+    .update({ status: parsed.data.status })
+    .eq('id', parsed.data.commentId)
+  if (error) return err('unknown', error.message)
+
+  await ctx.supabase.from('audit_log').insert({
+    actor_id: ctx.user.id,
+    action: `comment.moderate.${parsed.data.status}`,
+    target_type: 'comments',
+    target_id: parsed.data.commentId,
+  })
+
+  revalidatePath('/feed')
+  return ok(undefined)
+}
+
+export async function setUserRole(
+  input: z.input<typeof setUserRoleSchema>,
+): Promise<ActionResult> {
+  const parsed = setUserRoleSchema.safeParse(input)
+  if (!parsed.success) return err('invalid_input', parsed.error.issues[0]?.message)
+
+  const ctx = await requireAdminClient()
+  if (!ctx.ok) return err('forbidden')
+  if (isSelfTargeted(ctx.user.id, parsed.data.userId)) {
+    return err('forbidden', 'You cannot change your own role.')
+  }
+
+  const { error } = await ctx.supabase
+    .from('profiles')
+    .update({ role: parsed.data.role, updated_at: new Date().toISOString() })
+    .eq('id', parsed.data.userId)
+  if (error) return err('unknown', error.message)
+
+  await ctx.supabase.from('audit_log').insert({
+    actor_id: ctx.user.id,
+    action: `user.role.${parsed.data.role}`,
+    target_type: 'profiles',
+    target_id: null,
+    meta: { user_id: parsed.data.userId },
+  })
+
+  revalidatePath('/users')
+  return ok(undefined)
+}
+
+export async function setUserActive(
+  input: z.input<typeof setUserActiveSchema>,
+): Promise<ActionResult> {
+  const parsed = setUserActiveSchema.safeParse(input)
+  if (!parsed.success) return err('invalid_input', parsed.error.issues[0]?.message)
+
+  const ctx = await requireAdminClient()
+  if (!ctx.ok) return err('forbidden')
+  if (isSelfTargeted(ctx.user.id, parsed.data.userId)) {
+    return err('forbidden', 'You cannot suspend your own account.')
+  }
+
+  const { error } = await ctx.supabase
+    .from('profiles')
+    .update({ is_active: parsed.data.isActive, updated_at: new Date().toISOString() })
+    .eq('id', parsed.data.userId)
+  if (error) return err('unknown', error.message)
+
+  await ctx.supabase.from('audit_log').insert({
+    actor_id: ctx.user.id,
+    action: parsed.data.isActive ? 'user.reactivate' : 'user.suspend',
+    target_type: 'profiles',
+    target_id: null,
+    meta: { user_id: parsed.data.userId },
+  })
+
+  revalidatePath('/users')
   return ok(undefined)
 }

@@ -11,6 +11,10 @@ export const ACTION_ERRORS = {
   candidate_not_approved: { code: 'candidate_not_approved', message: 'Candidate is not approved.' },
   throttled: { code: 'throttled', message: 'Too many attempts. Try again in 15 minutes.' },
   invalid_credentials: { code: 'invalid_credentials', message: 'Invalid credentials.' },
+  account_suspended: {
+    code: 'account_suspended',
+    message: 'Your account has been suspended. Contact the electoral committee.',
+  },
   unknown: { code: 'unknown', message: 'Something went wrong. Please try again.' },
 } as const
 

@@ -37,3 +37,18 @@ export const moderatePostSchema = z.object({
   postId: z.coerce.number().int().positive(),
   status: z.enum(['active', 'hidden', 'deleted']),
 })
+
+export const moderateCommentSchema = z.object({
+  commentId: z.coerce.number().int().positive(),
+  status: z.enum(['active', 'hidden', 'deleted']),
+})
+
+export const setUserRoleSchema = z.object({
+  userId: z.string().uuid(),
+  role: z.enum(['student', 'admin']),
+})
+
+export const setUserActiveSchema = z.object({
+  userId: z.string().uuid(),
+  isActive: z.boolean(),
+})

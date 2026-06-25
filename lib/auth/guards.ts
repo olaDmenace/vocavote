@@ -38,6 +38,11 @@ export async function requireUser() {
 export async function requireProfile(): Promise<Profile> {
   const profile = await getCurrentProfile()
   if (!profile) redirect('/login')
+  if (!profile.is_active) {
+    const supabase = await createClient()
+    await supabase.auth.signOut()
+    redirect('/login?suspended=1')
+  }
   return profile
 }
 

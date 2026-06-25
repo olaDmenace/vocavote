@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { LoginForm } from './login-form'
+import { Alert } from '@/components/ui/alert'
 import {
   Card,
   CardContent,
@@ -10,18 +11,23 @@ import {
 } from '@/components/ui/card'
 
 type Props = {
-  searchParams: Promise<{ next?: string }>
+  searchParams: Promise<{ next?: string; suspended?: string }>
 }
 
 export default async function LoginPage({ searchParams }: Props) {
-  const { next } = await searchParams
+  const { next, suspended } = await searchParams
   return (
     <Card>
       <CardHeader>
         <CardTitle>Sign in</CardTitle>
         <CardDescription>Use your matric number to access the platform.</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-4">
+        {suspended ? (
+          <Alert tone="error">
+            Your account has been suspended. Contact the electoral committee.
+          </Alert>
+        ) : null}
         <LoginForm next={next} />
       </CardContent>
       <CardFooter className="flex flex-col items-start gap-2 text-sm">
