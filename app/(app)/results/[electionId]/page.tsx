@@ -38,27 +38,48 @@ export default async function ResultsPage({ params }: Props) {
     )
   }
 
-  const { data: results } = await supabase
-    .from('published_results')
-    .select('position_id, position_title, candidate_id, candidate_name, vote_count')
-    .eq('election_id', electionId)
+  // Build the full ballot (every position + approved candidate) first, then layer
+  // in vote counts. This way a published election with zero votes still renders
+  // every position and candidate at 0 instead of a blank page.
+  const [{ data: positions }, { data: candidates }, { data: results }] = await Promise.all([
+    supabase
+      .from('positions')
+      .select('id, title, display_order')
+      .eq('election_id', electionId)
+      .order('display_order')
+      .order('id'),
+    supabase
+      .from('candidates')
+      .select('id, position_id, student:profiles!candidates_student_id_fkey(full_name)')
+      .not('approved_at', 'is', null),
+    supabase
+      .from('published_results')
+      .select('position_id, candidate_id, vote_count')
+      .eq('election_id', electionId),
+  ])
 
+  const countByCandidate = new Map<number, number>()
+  for (const r of results ?? []) {
+    if (r.candidate_id === null) continue
+    countByCandidate.set(r.candidate_id, r.vote_count ?? 0)
+  }
+
+  const positionIds = new Set((positions ?? []).map((p) => p.id))
   const grouped = new Map<
     number,
     { positionTitle: string; candidates: { name: string; count: number }[]; total: number }
   >()
-  for (const r of results ?? []) {
-    if (r.position_id === null || r.position_title === null) continue
-    let g = grouped.get(r.position_id)
-    if (!g) {
-      g = { positionTitle: r.position_title, candidates: [], total: 0 }
-      grouped.set(r.position_id, g)
-    }
-    g.candidates.push({
-      name: r.candidate_name ?? 'Unknown',
-      count: r.vote_count ?? 0,
-    })
-    g.total += r.vote_count ?? 0
+  for (const p of positions ?? []) {
+    grouped.set(p.id, { positionTitle: p.title, candidates: [], total: 0 })
+  }
+  for (const c of candidates ?? []) {
+    if (!positionIds.has(c.position_id)) continue
+    const g = grouped.get(c.position_id)
+    if (!g) continue
+    const student = Array.isArray(c.student) ? c.student[0] : c.student
+    const count = countByCandidate.get(c.id) ?? 0
+    g.candidates.push({ name: student?.full_name ?? 'Unknown', count })
+    g.total += count
   }
 
   return (
@@ -71,6 +92,14 @@ export default async function ResultsPage({ params }: Props) {
           Official, published results.
         </p>
       </header>
+
+      {grouped.size === 0 ? (
+        <Card>
+          <CardContent className="pt-6 text-sm text-zinc-500">
+            No positions were set up for this election, so there are no results to show.
+          </CardContent>
+        </Card>
+      ) : null}
 
       {Array.from(grouped.entries()).map(([positionId, g]) => {
         const sorted = [...g.candidates].sort((a, b) => b.count - a.count)

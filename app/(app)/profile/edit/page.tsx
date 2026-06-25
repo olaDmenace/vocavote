@@ -28,7 +28,8 @@ export default async function ProfileEditPage() {
         <CardHeader>
           <CardTitle>Profile</CardTitle>
           <CardDescription>
-            Your matric number is permanent. Other fields can be updated.
+            Your {profile.role === 'admin' ? 'admin number' : 'matric number'} is permanent.
+            Other fields can be updated.
           </CardDescription>
         </CardHeader>
         <CardContent>

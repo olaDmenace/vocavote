@@ -24,10 +24,13 @@ export function PostCard({
   post,
   footer,
   actions,
+  showMatric = false,
 }: {
   post: FeedPost
   footer?: React.ReactNode
   actions?: React.ReactNode
+  /** Matric numbers are PII — only admins (or the author themselves) see them. */
+  showMatric?: boolean
 }) {
   return (
     <article className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
@@ -45,7 +48,9 @@ export function PostCard({
             >
               {post.author.full_name}
             </Link>
-            <span className="truncate text-xs text-zinc-500">{post.author.matric_no}</span>
+            {showMatric ? (
+              <span className="truncate text-xs text-zinc-500">{post.author.matric_no}</span>
+            ) : null}
           </div>
           <div className="text-xs text-zinc-500">
             {formatRelative(post.created_at)}

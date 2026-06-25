@@ -128,6 +128,40 @@ export async function publishResults(input: {
   return ok(undefined)
 }
 
+export async function deleteElection(input: {
+  electionId: number
+}): Promise<ActionResult> {
+  const id = z.coerce.number().int().positive().safeParse(input.electionId)
+  if (!id.success) return err('invalid_input')
+
+  const ctx = await requireAdminClient()
+  if (!ctx.ok) return err('forbidden')
+
+  // Positions → candidates cascade automatically. Votes use ON DELETE NO ACTION,
+  // so an election with real ballots cannot be deleted (Postgres raises 23503).
+  const { error } = await ctx.supabase.from('elections').delete().eq('id', id.data)
+  if (error) {
+    if (error.code === '23503') {
+      return err(
+        'forbidden',
+        'This election has votes cast and cannot be deleted. Close it instead.',
+      )
+    }
+    return err('unknown', error.message)
+  }
+
+  await ctx.supabase.from('audit_log').insert({
+    actor_id: ctx.user.id,
+    action: 'election.delete',
+    target_type: 'elections',
+    target_id: id.data,
+  })
+
+  revalidatePath('/elections')
+  revalidatePath('/dashboard')
+  return ok(undefined)
+}
+
 export async function createPosition(
   input: z.input<typeof createPositionSchema>,
 ): Promise<ActionResult<{ id: number }>> {

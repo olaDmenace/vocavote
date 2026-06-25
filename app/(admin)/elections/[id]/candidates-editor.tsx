@@ -30,6 +30,7 @@ export function CandidatesEditor({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   const [positionId, setPositionId] = useState<number | ''>(positions[0]?.id ?? '')
   const [studentId, setStudentId] = useState<string>('')
 
@@ -37,6 +38,8 @@ export function CandidatesEditor({
     e.preventDefault()
     if (!positionId || !studentId) return
     setError(null)
+    setSuccess(null)
+    const studentLabel = students.find((s) => s.id === studentId)?.full_name ?? 'Candidate'
     startTransition(async () => {
       const result = await nominateCandidate({
         positionId: Number(positionId),
@@ -47,6 +50,7 @@ export function CandidatesEditor({
         return
       }
       setStudentId('')
+      setSuccess(`${studentLabel} nominated. Approve them below to add them to the ballot.`)
       router.refresh()
     })
   }
@@ -142,6 +146,7 @@ export function CandidatesEditor({
         className="flex flex-col gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-800"
       >
         {error ? <Alert tone="error">{error}</Alert> : null}
+        {success ? <Alert tone="success">{success}</Alert> : null}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="candidate-position">Position</Label>

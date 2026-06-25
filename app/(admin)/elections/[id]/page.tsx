@@ -6,6 +6,7 @@ import { formatDateTime } from '@/lib/utils/format'
 import { ElectionStatusControls } from './election-status-controls'
 import { PositionsEditor } from './positions-editor'
 import { CandidatesEditor } from './candidates-editor'
+import { DeleteElectionButton } from './delete-election-button'
 
 type Props = { params: Promise<{ id: string }> }
 
@@ -104,6 +105,16 @@ export default async function ElectionEditorPage({ params }: Props) {
             )}
             students={students ?? []}
           />
+        </CardContent>
+      </Card>
+
+      <Card className="border-red-200 dark:border-red-900/50">
+        <CardHeader>
+          <CardTitle>Danger zone</CardTitle>
+          <CardDescription>Permanently delete this election.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DeleteElectionButton electionId={election.id} electionTitle={election.title} />
         </CardContent>
       </Card>
     </div>

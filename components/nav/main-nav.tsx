@@ -24,6 +24,9 @@ export function MainNav({ profile }: { profile: Profile }) {
             <Link href="/candidates" className="hover:text-zinc-900 dark:hover:text-zinc-50">
               Candidates
             </Link>
+            <Link href="/ballot" className="hover:text-zinc-900 dark:hover:text-zinc-50">
+              Ballot
+            </Link>
             {isAdmin ? (
               <Link
                 href="/dashboard"

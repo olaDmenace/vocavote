@@ -30,6 +30,14 @@ const securityHeaders = [
 ]
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // Avatars and post images are uploaded through Server Actions; the default
+    // 1 MB body cap rejects most photos. Raise it to cover our 2 MB avatar /
+    // 5 MB post-image validation ceilings (with headroom for multipart overhead).
+    serverActions: {
+      bodySizeLimit: '8mb',
+    },
+  },
   async headers() {
     return [
       {

@@ -14,12 +14,12 @@ export default async function BallotPage({ params }: Props) {
   const electionId = Number(rawId)
   if (!Number.isFinite(electionId)) notFound()
 
-  await requireProfile()
+  const viewer = await requireProfile()
   const supabase = await createClient()
 
   const { data: election } = await supabase
     .from('elections')
-    .select('id, title, description, status, start_at, end_at')
+    .select('id, title, description, status, start_at, end_at, results_published')
     .eq('id', electionId)
     .maybeSingle()
 
@@ -45,6 +45,14 @@ export default async function BallotPage({ params }: Props) {
             <p className="text-xs text-zinc-500">
               Window: {formatDateTime(election.start_at)} → {formatDateTime(election.end_at)}
             </p>
+            {election.results_published ? (
+              <Link
+                href={`/results/${election.id}`}
+                className="text-sm font-medium underline-offset-4 hover:underline"
+              >
+                View results →
+              </Link>
+            ) : null}
             <Link href="/feed" className="text-sm font-medium underline-offset-4 hover:underline">
               Back to feed
             </Link>
@@ -103,7 +111,7 @@ export default async function BallotPage({ params }: Props) {
         </p>
       </header>
 
-      <Ballot positions={ballotPositions} />
+      <Ballot positions={ballotPositions} showMatric={viewer.role === 'admin'} />
     </div>
   )
 }

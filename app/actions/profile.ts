@@ -29,9 +29,6 @@ export async function updateProfile(
     .from('profiles')
     .update({
       full_name: parsed.data.fullName,
-      department: parsed.data.department,
-      faculty: parsed.data.faculty,
-      level: parsed.data.level,
       bio: parsed.data.bio ?? null,
       updated_at: new Date().toISOString(),
     })

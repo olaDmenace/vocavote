@@ -89,6 +89,7 @@ export default async function CandidatePage({ params }: Props) {
 
   const isOwner = viewer.id === student.id
   const canEditManifesto = isOwner && candidate.approved_at !== null
+  const canSeeMatric = viewer.role === 'admin' || isOwner
 
   return (
     <div className="grid gap-6 md:grid-cols-[320px,1fr]">
@@ -100,7 +101,9 @@ export default async function CandidatePage({ params }: Props) {
           >
             {student.full_name}
           </Link>
-          <p className="text-sm text-zinc-500">{student.matric_no}</p>
+          {canSeeMatric ? (
+            <p className="text-sm text-zinc-500">{student.matric_no}</p>
+          ) : null}
           {position?.title ? (
             <p className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
               Running for {position.title}
@@ -153,6 +156,7 @@ export default async function CandidatePage({ params }: Props) {
           <>
             <PostCard
               post={manifestoPost}
+              showMatric={canSeeMatric}
               actions={
                 viewer.role === 'admin' ? (
                   <PostModerationMenu postId={manifestoPost.id} status="active" />

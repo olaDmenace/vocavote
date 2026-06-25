@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { requireProfile } from '@/lib/auth/guards'
 import { Avatar } from '@/components/profile/avatar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatRelative } from '@/lib/utils/format'
@@ -9,6 +10,7 @@ type Props = { params: Promise<{ id: string }> }
 export default async function ProfilePage({ params }: Props) {
   const { id } = await params
 
+  const viewer = await requireProfile()
   const supabase = await createClient()
 
   const [{ data: profile }, { data: posts }] = await Promise.all([
@@ -24,6 +26,10 @@ export default async function ProfilePage({ params }: Props) {
 
   if (!profile) notFound()
 
+  // Matric numbers are PII: visible only to admins or the profile owner.
+  const canSeeMatric = viewer.role === 'admin' || viewer.id === profile.id
+  const isAdminProfile = profile.role === 'admin'
+
   return (
     <div className="grid gap-6 md:grid-cols-[320px,1fr]">
       <Card>
@@ -33,21 +39,27 @@ export default async function ProfilePage({ params }: Props) {
             <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
               {profile.full_name}
             </h1>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">{profile.matric_no}</p>
+            {canSeeMatric ? (
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">{profile.matric_no}</p>
+            ) : null}
           </div>
           <dl className="w-full space-y-2 text-left text-sm">
-            <div className="flex justify-between">
-              <dt className="text-zinc-500">Department</dt>
-              <dd className="text-zinc-800 dark:text-zinc-200">{profile.department}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-zinc-500">Faculty</dt>
-              <dd className="text-zinc-800 dark:text-zinc-200">{profile.faculty}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-zinc-500">Level</dt>
-              <dd className="text-zinc-800 dark:text-zinc-200">{profile.level}</dd>
-            </div>
+            {!isAdminProfile ? (
+              <>
+                <div className="flex justify-between">
+                  <dt className="text-zinc-500">Department</dt>
+                  <dd className="text-zinc-800 dark:text-zinc-200">{profile.department}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-zinc-500">Faculty</dt>
+                  <dd className="text-zinc-800 dark:text-zinc-200">{profile.faculty}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-zinc-500">Level</dt>
+                  <dd className="text-zinc-800 dark:text-zinc-200">{profile.level}</dd>
+                </div>
+              </>
+            ) : null}
             <div className="flex justify-between">
               <dt className="text-zinc-500">Role</dt>
               <dd>

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireProfile } from '@/lib/auth/guards'
 import { PostCard, type FeedPost } from '@/components/feed/post-card'
 import { PostModerationMenu } from '@/components/feed/post-moderation-menu'
+import { DeletePostButton } from '@/components/feed/delete-post-button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CreatePostForm } from './create-post-form'
 
@@ -101,9 +102,12 @@ export default async function FeedPage() {
             <div key={post.id}>
               <PostCard
                 post={post}
+                showMatric={profile.role === 'admin' || post.author.id === profile.id}
                 actions={
                   profile.role === 'admin' ? (
                     <PostModerationMenu postId={post.id} status="active" />
+                  ) : post.author.id === profile.id ? (
+                    <DeletePostButton postId={post.id} />
                   ) : undefined
                 }
                 footer={

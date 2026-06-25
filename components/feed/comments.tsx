@@ -157,7 +157,9 @@ export function CommentThread({ postId, initialComments, viewer, isAdmin = false
                 <span className="font-medium text-zinc-800 dark:text-zinc-200">
                   {c.author.full_name}
                 </span>
-                <span>{c.author.matric_no}</span>
+                {isAdmin || c.author_id === viewer.id ? (
+                  <span>{c.author.matric_no}</span>
+                ) : null}
                 <span>·</span>
                 <span>{formatRelative(c.created_at)}</span>
                 {(c as OptimisticComment).pending ? (

@@ -26,7 +26,13 @@ export type BallotPosition = {
   candidates: BallotCandidate[]
 }
 
-export function Ballot({ positions }: { positions: BallotPosition[] }) {
+export function Ballot({
+  positions,
+  showMatric = false,
+}: {
+  positions: BallotPosition[]
+  showMatric?: boolean
+}) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [selections, setSelections] = useState<Record<number, number | undefined>>({})
@@ -125,8 +131,9 @@ export function Ballot({ positions }: { positions: BallotPosition[] }) {
                             {c.fullName}
                           </div>
                           <div className="truncate text-xs text-zinc-500">
-                            {c.matricNo}
-                            {c.manifestoTitle ? ` · ${c.manifestoTitle}` : ''}
+                            {showMatric ? c.matricNo : null}
+                            {showMatric && c.manifestoTitle ? ' · ' : ''}
+                            {c.manifestoTitle ?? ''}
                           </div>
                         </div>
                         <Link

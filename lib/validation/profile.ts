@@ -1,10 +1,9 @@
 import { z } from 'zod'
 
+// Department / faculty / level are captured at registration and are no longer
+// editable here, so this schema only covers the self-service fields.
 export const updateProfileSchema = z.object({
   fullName: z.string().trim().min(2).max(150),
-  department: z.string().trim().min(2).max(100),
-  faculty: z.string().trim().min(2).max(100),
-  level: z.enum(['100', '200', '300', '400', '500', '600']),
   bio: z.string().trim().max(280, 'Bio must be 280 characters or fewer.').optional(),
 })
 

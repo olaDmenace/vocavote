@@ -25,3 +25,12 @@ export const createCommentSchema = z.object({
 })
 
 export type CreateCommentInput = z.infer<typeof createCommentSchema>
+
+// Inline images attached to posts (uploaded to the public `post-media` bucket).
+export const POST_IMAGE_MAX_BYTES = 5 * 1024 * 1024 // 5 MB
+export const POST_IMAGE_MIME_WHITELIST = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+] as const
