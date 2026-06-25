@@ -20,7 +20,15 @@ export type FeedPost = {
   position_title?: string | null
 }
 
-export function PostCard({ post, footer }: { post: FeedPost; footer?: React.ReactNode }) {
+export function PostCard({
+  post,
+  footer,
+  actions,
+}: {
+  post: FeedPost
+  footer?: React.ReactNode
+  actions?: React.ReactNode
+}) {
   return (
     <article className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
       <header className="flex items-center gap-3">
@@ -52,6 +60,7 @@ export function PostCard({ post, footer }: { post: FeedPost; footer?: React.Reac
             ) : null}
           </div>
         </div>
+        {actions ? <div className="shrink-0">{actions}</div> : null}
       </header>
 
       {post.title ? (
