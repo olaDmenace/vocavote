@@ -64,7 +64,7 @@ export async function login(input: z.input<typeof loginSchema>): Promise<ActionR
   if (locked === true) return err('throttled')
 
   const email = matricToEmail(matricNo)
-  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password })
 
   await supabase.rpc('record_login_attempt', {
     p_matric_no: matricNo,
@@ -72,8 +72,19 @@ export async function login(input: z.input<typeof loginSchema>): Promise<ActionR
     p_success: !error,
   })
 
-  if (error) {
+  if (error || !signInData.user) {
     return err('invalid_credentials')
+  }
+
+  // Block suspended accounts (and end the just-created session).
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('is_active')
+    .eq('id', signInData.user.id)
+    .maybeSingle()
+  if (profile && profile.is_active === false) {
+    await supabase.auth.signOut()
+    return err('account_suspended')
   }
 
   return ok({ next: '/feed' })
