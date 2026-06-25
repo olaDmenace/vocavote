@@ -50,10 +50,25 @@ describe.runIf(shouldRun)('cast_vote (integration)', () => {
     // themselves doesn't matter, but keep the test stable).
     const { data: election } = await adminClient
       .from('elections')
-      .select('id')
+      .select('id, start_at, end_at')
       .eq('status', 'live')
       .maybeSingle()
     if (!election) throw new Error('No live election found')
+
+    // Guard against stale seed data: `cast_vote` gates on the time window, not
+    // just status='live'. If the seeded window has expired, every cast returns
+    // `election_not_live` and the assertions fail with a cryptic mismatch.
+    // Fail loudly here with the actual cause instead.
+    const now = Date.now()
+    const startAt = new Date(election.start_at).getTime()
+    const endAt = new Date(election.end_at).getTime()
+    if (now < startAt || now >= endAt) {
+      throw new Error(
+        `Live election ${election.id} window does not cover now ` +
+          `(${election.start_at} … ${election.end_at}). ` +
+          `Re-seed or extend end_at — cast_vote will return election_not_live.`,
+      )
+    }
 
     const { data: positions } = await adminClient
       .from('positions')
