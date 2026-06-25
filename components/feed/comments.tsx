@@ -4,6 +4,7 @@ import { useEffect, useOptimistic, useRef, useState, useTransition } from 'react
 import { useRouter } from 'next/navigation'
 
 import { createComment } from '@/app/actions/posts'
+import { moderateComment } from '@/app/actions/admin'
 import { Avatar } from '@/components/profile/avatar'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -34,11 +35,12 @@ type Props = {
   postId: number
   initialComments: FeedComment[]
   viewer: ViewerProfile
+  isAdmin?: boolean
 }
 
 type OptimisticComment = FeedComment & { pending?: true }
 
-export function CommentThread({ postId, initialComments, viewer }: Props) {
+export function CommentThread({ postId, initialComments, viewer, isAdmin = false }: Props) {
   const router = useRouter()
   const [serverComments, setServerComments] = useState<FeedComment[]>(initialComments)
   const [optimisticComments, addOptimisticComment] = useOptimistic<OptimisticComment[], OptimisticComment>(
@@ -132,6 +134,18 @@ export function CommentThread({ postId, initialComments, viewer }: Props) {
     })
   }
 
+  function moderate(commentId: number) {
+    if (!confirm('Delete this comment?')) return
+    startTransition(async () => {
+      const result = await moderateComment({ commentId, status: 'deleted' })
+      if (!result.ok) {
+        setError(result.error.message)
+        return
+      }
+      setServerComments((prev) => prev.filter((c) => c.id !== commentId))
+    })
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <ul className="flex flex-col gap-3">
@@ -148,6 +162,16 @@ export function CommentThread({ postId, initialComments, viewer }: Props) {
                 <span>{formatRelative(c.created_at)}</span>
                 {(c as OptimisticComment).pending ? (
                   <span className="italic">sending…</span>
+                ) : null}
+                {isAdmin && c.id > 0 && !(c as OptimisticComment).pending ? (
+                  <button
+                    type="button"
+                    onClick={() => moderate(c.id)}
+                    disabled={isPending}
+                    className="ml-auto font-medium text-red-600 hover:underline disabled:opacity-50"
+                  >
+                    Delete
+                  </button>
                 ) : null}
               </div>
               <p className="mt-1 whitespace-pre-wrap break-words text-sm text-zinc-800 dark:text-zinc-100">

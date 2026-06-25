@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { requireProfile } from '@/lib/auth/guards'
 import { PostCard, type FeedPost } from '@/components/feed/post-card'
+import { PostModerationMenu } from '@/components/feed/post-moderation-menu'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CreatePostForm } from './create-post-form'
 
@@ -100,6 +101,11 @@ export default async function FeedPage() {
             <div key={post.id}>
               <PostCard
                 post={post}
+                actions={
+                  profile.role === 'admin' ? (
+                    <PostModerationMenu postId={post.id} status="active" />
+                  ) : undefined
+                }
                 footer={
                   <Link
                     href={
