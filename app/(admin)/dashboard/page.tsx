@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Users, Vote, Radio, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import {
   Card,
@@ -20,6 +21,8 @@ export default async function AdminDashboardPage() {
         .from('elections')
         .select('id, title, status, start_at, end_at')
         .eq('status', 'live')
+        .order('start_at', { ascending: false })
+        .limit(1)
         .maybeSingle(),
     ])
 
@@ -35,9 +38,14 @@ export default async function AdminDashboardPage() {
       </header>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Stat label="Total students" value={voterCount ?? 0} />
-        <Stat label="Elections" value={electionCount ?? 0} />
-        <Stat label="Live now" value={liveElection ? 1 : 0} />
+        <Stat label="Total students" value={voterCount ?? 0} icon={Users} />
+        <Stat label="Elections" value={electionCount ?? 0} icon={Vote} />
+        <Stat
+          label="Live now"
+          value={liveElection ? 1 : 0}
+          icon={Radio}
+          accent={Boolean(liveElection)}
+        />
       </div>
 
       {liveElection ? (
@@ -68,12 +76,35 @@ export default async function AdminDashboardPage() {
   )
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({
+  label,
+  value,
+  icon: Icon,
+  accent = false,
+}: {
+  label: string
+  value: number
+  icon: LucideIcon
+  accent?: boolean
+}) {
   return (
     <Card>
-      <CardContent className="pt-6">
-        <div className="text-3xl font-semibold text-zinc-900 dark:text-zinc-50">{value}</div>
-        <div className="text-sm text-zinc-600 dark:text-zinc-400">{label}</div>
+      <CardContent className="flex items-center gap-4 pt-6">
+        <span
+          className={
+            accent
+              ? 'grid h-11 w-11 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+              : 'grid h-11 w-11 shrink-0 place-items-center rounded-full bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'
+          }
+        >
+          <Icon className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div>
+          <div className="text-3xl font-semibold leading-none text-zinc-900 dark:text-zinc-50">
+            {value}
+          </div>
+          <div className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{label}</div>
+        </div>
       </CardContent>
     </Card>
   )

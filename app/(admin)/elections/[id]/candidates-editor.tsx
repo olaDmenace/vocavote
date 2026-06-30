@@ -29,11 +29,18 @@ export function CandidatesEditor({
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [positionId, setPositionId] = useState<number | ''>(positions[0]?.id ?? '')
+  const [selectedPosition, setSelectedPosition] = useState<number | ''>('')
   const [studentId, setStudentId] = useState<string>('')
   // Drive the list from local state so nominate/approve/revoke reflect instantly
   // without a full page refresh.
   const [list, setList] = useState<Candidate[]>(candidates)
+
+  // Derive the effective position rather than storing a default. Positions can
+  // arrive after mount (admin adds them above, which refreshes the page), so
+  // falling back to the first available position keeps the Nominate button
+  // enabled without needing a manual refresh.
+  const positionId: number | '' =
+    selectedPosition !== '' ? selectedPosition : positions[0]?.id ?? ''
 
   function onAdd(e: React.FormEvent) {
     e.preventDefault()
@@ -166,7 +173,7 @@ export function CandidatesEditor({
             <Select
               id="candidate-position"
               value={positionId}
-              onChange={(e) => setPositionId(e.target.value ? Number(e.target.value) : '')}
+              onChange={(e) => setSelectedPosition(e.target.value ? Number(e.target.value) : '')}
             >
               {positions.map((p) => (
                 <option key={p.id} value={p.id}>

@@ -1,12 +1,16 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { Menu, X } from 'lucide-react'
+import { cn } from '@/lib/utils/cn'
+import { isActivePath } from './desktop-nav'
 
 type Item = { href: string; label: string }
 
 export function MobileNav({ items }: { items: Item[] }) {
+  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -36,17 +40,26 @@ export function MobileNav({ items }: { items: Item[] }) {
           role="menu"
           className="absolute left-0 mt-2 w-48 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
         >
-          {items.map((item) => (
-            <Link
-              key={item.href}
-              role="menuitem"
-              href={item.href}
-              onClick={() => setOpen(false)}
-              className="block px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            >
-              {item.label}
-            </Link>
-          ))}
+          {items.map((item) => {
+            const active = isActivePath(pathname, item.href)
+            return (
+              <Link
+                key={item.href}
+                role="menuitem"
+                href={item.href}
+                onClick={() => setOpen(false)}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'block px-3 py-2 text-sm',
+                  active
+                    ? 'bg-zinc-100 font-medium text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50'
+                    : 'text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800',
+                )}
+              >
+                {item.label}
+              </Link>
+            )
+          })}
         </div>
       ) : null}
     </div>

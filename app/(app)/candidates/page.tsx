@@ -13,6 +13,8 @@ export default async function CandidatesPage() {
     .from('elections')
     .select('id, title, status')
     .eq('status', 'live')
+    .order('start_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   let election = live

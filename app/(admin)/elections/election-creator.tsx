@@ -14,10 +14,29 @@ import { Textarea } from '@/components/ui/textarea'
 import { Field, FieldError } from '@/components/ui/field'
 import { Alert } from '@/components/ui/alert'
 
-function isoLocalNow(offsetMs = 0): string {
-  const d = new Date(Date.now() + offsetMs)
-  const tzOffset = d.getTimezoneOffset() * 60000
-  return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16)
+// The app runs on West Africa Time (UTC+1, no DST). We interpret the
+// datetime-local inputs as WAT explicitly rather than the browser's timezone,
+// so an admin in any locale gets the Nigerian time they typed — and it no longer
+// shifts back an hour after saving.
+const WAT_OFFSET = '+01:00'
+
+// `YYYY-MM-DDTHH:mm` string representing the WAT wall-clock `offsetMs` from now.
+function watWallClock(offsetMs = 0): string {
+  const watMs = Date.now() + offsetMs + 60 * 60 * 1000 // shift UTC → WAT clock
+  return new Date(watMs).toISOString().slice(0, 16)
+}
+
+// Treat a datetime-local value (no timezone) as WAT and return a UTC ISO string.
+// react-hook-form also feeds the already-ISO default value back through here, so
+// pass through anything that already carries a timezone, and never throw.
+function watInputToISO(local: string): string {
+  if (!local) return local
+  const hasTimezone = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(local)
+  const candidate = hasTimezone
+    ? local
+    : `${local.length === 16 ? `${local}:00` : local}${WAT_OFFSET}`
+  const d = new Date(candidate)
+  return Number.isNaN(d.getTime()) ? local : d.toISOString()
 }
 
 export function ElectionCreator() {
@@ -25,15 +44,18 @@ export function ElectionCreator() {
   const [isPending, startTransition] = useTransition()
   const [formError, setFormError] = useState<string | null>(null)
 
-  // Compute initial window once on mount via useState's lazy initializer —
+  // Compute the initial window once on mount via useState's lazy initializer —
   // React purity rules disallow Date.now() during render or inside useMemo.
-  const [initialDefaults] = useState<CreateElectionInput>(() => {
-    const now = Date.now()
+  // Keep the WAT wall-clock strings (for the inputs) and their ISO equivalents
+  // (the form's actual values) in sync so an untouched field still submits WAT.
+  const [defaults] = useState(() => {
+    const startLocal = watWallClock(60 * 1000)
+    const endLocal = watWallClock(7 * 24 * 3600 * 1000)
     return {
-      title: '',
-      description: '',
-      startAt: new Date(now + 60 * 1000).toISOString(),
-      endAt: new Date(now + 7 * 24 * 3600 * 1000).toISOString(),
+      startLocal,
+      endLocal,
+      startAt: watInputToISO(startLocal),
+      endAt: watInputToISO(endLocal),
     }
   })
 
@@ -44,7 +66,12 @@ export function ElectionCreator() {
     formState: { errors },
   } = useForm<CreateElectionInput>({
     resolver: zodResolver(createElectionSchema),
-    defaultValues: initialDefaults,
+    defaultValues: {
+      title: '',
+      description: '',
+      startAt: defaults.startAt,
+      endAt: defaults.endAt,
+    },
   })
 
   function onSubmit(values: CreateElectionInput) {
@@ -82,8 +109,8 @@ export function ElectionCreator() {
           <Input
             id="startAt"
             type="datetime-local"
-            defaultValue={isoLocalNow(60 * 1000)}
-            {...register('startAt', { setValueAs: (v) => (v ? new Date(v).toISOString() : v) })}
+            defaultValue={defaults.startLocal}
+            {...register('startAt', { setValueAs: watInputToISO })}
             aria-invalid={Boolean(errors.startAt) || undefined}
           />
           <FieldError message={errors.startAt?.message} />
@@ -94,13 +121,16 @@ export function ElectionCreator() {
           <Input
             id="endAt"
             type="datetime-local"
-            defaultValue={isoLocalNow(7 * 24 * 3600 * 1000)}
-            {...register('endAt', { setValueAs: (v) => (v ? new Date(v).toISOString() : v) })}
+            defaultValue={defaults.endLocal}
+            {...register('endAt', { setValueAs: watInputToISO })}
             aria-invalid={Boolean(errors.endAt) || undefined}
           />
           <FieldError message={errors.endAt?.message} />
         </Field>
       </div>
+      <p className="-mt-2 text-xs text-zinc-500">
+        Times are in West Africa Time (WAT, GMT+1).
+      </p>
 
       <div className="flex justify-end">
         <Button type="submit" disabled={isPending}>

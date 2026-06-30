@@ -1,6 +1,12 @@
+// The platform serves Nigeria, so always render in West Africa Time (UTC+1),
+// independent of where the code runs (Vercel is UTC). Without a fixed timeZone
+// the same timestamp shows an hour earlier on a UTC server than the admin meant.
+export const APP_TIME_ZONE = 'Africa/Lagos'
+
 const dateTimeFmt = new Intl.DateTimeFormat('en-NG', {
   dateStyle: 'medium',
   timeStyle: 'short',
+  timeZone: APP_TIME_ZONE,
 })
 
 const relativeFmt = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })

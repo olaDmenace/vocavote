@@ -9,20 +9,19 @@ export default async function BallotIndexPage() {
   await requireProfile()
   const supabase = await createClient()
 
-  const nowIso = new Date().toISOString()
-
-  // A live election whose voting window is currently open — jump straight to it.
-  const { data: openElection } = await supabase
+  // Jump straight to the live election's ballot — same rule the "Go to ballot"
+  // link on the Candidates page uses (status = 'live'). The ballot page itself
+  // shows a clear "voting isn't open" state if the window isn't current, so we
+  // don't second-guess the admin's live flag here.
+  const { data: liveElection } = await supabase
     .from('elections')
     .select('id')
     .eq('status', 'live')
-    .lte('start_at', nowIso)
-    .gt('end_at', nowIso)
-    .order('end_at', { ascending: true })
+    .order('start_at', { ascending: false })
     .limit(1)
     .maybeSingle()
 
-  if (openElection) redirect(`/ballot/${openElection.id}`)
+  if (liveElection) redirect(`/ballot/${liveElection.id}`)
 
   // Otherwise show recently published results so the trip isn't a dead end.
   const { data: published } = await supabase
