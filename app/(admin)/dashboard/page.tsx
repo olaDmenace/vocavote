@@ -13,7 +13,7 @@ import { formatDateTime } from '@/lib/utils/format'
 export default async function AdminDashboardPage() {
   const supabase = await createClient()
 
-  const [{ count: voterCount }, { count: electionCount }, { data: liveElection }] =
+  const [{ count: voterCount }, { count: electionCount }, { data: liveElections }] =
     await Promise.all([
       supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student'),
       supabase.from('elections').select('*', { count: 'exact', head: true }),
@@ -21,10 +21,10 @@ export default async function AdminDashboardPage() {
         .from('elections')
         .select('id, title, status, start_at, end_at')
         .eq('status', 'live')
-        .order('start_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+        .order('start_at', { ascending: false }),
     ])
+
+  const live = liveElections ?? []
 
   return (
     <div className="flex flex-col gap-6">
@@ -40,37 +40,39 @@ export default async function AdminDashboardPage() {
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label="Total students" value={voterCount ?? 0} icon={Users} />
         <Stat label="Elections" value={electionCount ?? 0} icon={Vote} />
-        <Stat
-          label="Live now"
-          value={liveElection ? 1 : 0}
-          icon={Radio}
-          accent={Boolean(liveElection)}
-        />
+        <Stat label="Live now" value={live.length} icon={Radio} accent={live.length > 0} />
       </div>
 
-      {liveElection ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{liveElection.title}</CardTitle>
-            <CardDescription>
-              Live · ends {formatDateTime(liveElection.end_at)}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex gap-3">
-            <Link
-              href={`/elections/${liveElection.id}`}
-              className="text-sm font-medium underline-offset-4 hover:underline"
-            >
-              Manage
-            </Link>
-            <Link
-              href={`/elections/${liveElection.id}/tally`}
-              className="text-sm font-medium underline-offset-4 hover:underline"
-            >
-              Live tally
-            </Link>
-          </CardContent>
-        </Card>
+      {live.length > 0 ? (
+        <div className="flex flex-col gap-4">
+          <h2 className="text-sm font-medium text-zinc-500">
+            {live.length === 1 ? 'Live election' : `Live elections (${live.length})`}
+          </h2>
+          {live.map((election) => (
+            <Card key={election.id}>
+              <CardHeader>
+                <CardTitle>{election.title}</CardTitle>
+                <CardDescription>
+                  Live · ends {formatDateTime(election.end_at)}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex gap-3">
+                <Link
+                  href={`/elections/${election.id}`}
+                  className="text-sm font-medium underline-offset-4 hover:underline"
+                >
+                  Manage
+                </Link>
+                <Link
+                  href={`/elections/${election.id}/tally`}
+                  className="text-sm font-medium underline-offset-4 hover:underline"
+                >
+                  Live tally
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       ) : null}
     </div>
   )
