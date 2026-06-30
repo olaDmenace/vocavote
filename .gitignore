@@ -44,3 +44,6 @@ next-env.d.ts
 
 # generated docs / playbooks
 VocaVote-Playbook.pdf
+
+# playwright mcp test artifacts
+.playwright-mcp/

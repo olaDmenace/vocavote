@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { approveCandidate, nominateCandidate, revokeCandidate } from '@/app/actions/admin'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -27,31 +26,43 @@ export function CandidatesEditor({
   candidates: Candidate[]
   students: Student[]
 }) {
-  const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [positionId, setPositionId] = useState<number | ''>(positions[0]?.id ?? '')
   const [studentId, setStudentId] = useState<string>('')
+  // Drive the list from local state so nominate/approve/revoke reflect instantly
+  // without a full page refresh.
+  const [list, setList] = useState<Candidate[]>(candidates)
 
   function onAdd(e: React.FormEvent) {
     e.preventDefault()
     if (!positionId || !studentId) return
     setError(null)
     setSuccess(null)
-    const studentLabel = students.find((s) => s.id === studentId)?.full_name ?? 'Candidate'
+    const student = students.find((s) => s.id === studentId)
+    const pid = Number(positionId)
+    const sid = studentId
     startTransition(async () => {
-      const result = await nominateCandidate({
-        positionId: Number(positionId),
-        studentId,
-      })
+      const result = await nominateCandidate({ positionId: pid, studentId: sid })
       if (!result.ok) {
         setError(result.error.message)
         return
       }
+      setList((prev) => [
+        ...prev,
+        {
+          id: result.data.id,
+          student_id: sid,
+          position_id: pid,
+          approved_at: null,
+          profiles: student
+            ? { full_name: student.full_name, matric_no: student.matric_no }
+            : null,
+        },
+      ])
       setStudentId('')
-      setSuccess(`${studentLabel} nominated. Approve them below to add them to the ballot.`)
-      router.refresh()
+      setSuccess(`${student?.full_name ?? 'Candidate'} nominated. Approve them below to add them to the ballot.`)
     })
   }
 
@@ -63,7 +74,9 @@ export function CandidatesEditor({
         setError(result.error.message)
         return
       }
-      router.refresh()
+      setList((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, approved_at: new Date().toISOString() } : c)),
+      )
     })
   }
 
@@ -76,7 +89,7 @@ export function CandidatesEditor({
         setError(result.error.message)
         return
       }
-      router.refresh()
+      setList((prev) => prev.map((c) => (c.id === id ? { ...c, approved_at: null } : c)))
     })
   }
 
@@ -87,7 +100,7 @@ export function CandidatesEditor({
   return (
     <div className="flex flex-col gap-4">
       {positions.map((p) => {
-        const positionCandidates = candidates.filter((c) => c.position_id === p.id)
+        const positionCandidates = list.filter((c) => c.position_id === p.id)
         return (
           <div
             key={p.id}

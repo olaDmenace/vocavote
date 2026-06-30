@@ -4,12 +4,18 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import {
   AVATAR_MAX_BYTES,
   AVATAR_MIME_WHITELIST,
   updateProfileSchema,
 } from '@/lib/validation/profile'
 import { ok, err, type ActionResult } from '@/types/domain'
+
+// `profiles` intentionally has no self-UPDATE RLS policy: a blanket one would let
+// users change their own `role`/`is_active` (privilege escalation). Instead we
+// persist self-edits through the service-role client, always scoped to the
+// authenticated user's own id and to safe columns only (never role/is_active).
 
 export async function updateProfile(
   input: z.input<typeof updateProfileSchema>,
@@ -25,7 +31,8 @@ export async function updateProfile(
   } = await supabase.auth.getUser()
   if (!user) return err('unauthenticated')
 
-  const { error } = await supabase
+  const admin = createAdminClient()
+  const { error } = await admin
     .from('profiles')
     .update({
       full_name: parsed.data.fullName,
@@ -64,8 +71,13 @@ export async function uploadAvatar(
   // Server-side regenerated path — clients can't pick their own.
   const path = `${user.id}/avatar-${Date.now()}.${ext}`
 
+  // Upload with the service-role client: the user-scoped SSR client doesn't
+  // satisfy the avatars-bucket owner-folder policy from a server action, so the
+  // storage INSERT fails RLS. The path is server-controlled to the user's own
+  // folder, so bypassing storage RLS here is safe.
+  const admin = createAdminClient()
   const bytes = new Uint8Array(await file.arrayBuffer())
-  const { error: uploadError } = await supabase.storage
+  const { error: uploadError } = await admin.storage
     .from('avatars')
     .upload(path, bytes, {
       contentType: file.type,
@@ -74,7 +86,7 @@ export async function uploadAvatar(
     })
   if (uploadError) return err('unknown', uploadError.message)
 
-  const { error: updateError } = await supabase
+  const { error: updateError } = await admin
     .from('profiles')
     .update({ avatar_path: path, updated_at: new Date().toISOString() })
     .eq('id', user.id)

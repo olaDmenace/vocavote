@@ -4,6 +4,8 @@ import { requireProfile } from '@/lib/auth/guards'
 import { PostCard, type FeedPost } from '@/components/feed/post-card'
 import { PostModerationMenu } from '@/components/feed/post-moderation-menu'
 import { DeletePostButton } from '@/components/feed/delete-post-button'
+import { PostReactions } from '@/components/feed/post-reactions'
+import { getReactionsForPosts } from '@/lib/reactions/fetch'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CreatePostForm } from './create-post-form'
 
@@ -11,11 +13,18 @@ export default async function FeedPage() {
   const profile = await requireProfile()
   const supabase = await createClient()
 
-  // Live election banner + ballot link
+  // Live election banner + ballot link. Match the ballot's own "open" rule
+  // (status live AND inside the voting window) so the banner never points at a
+  // closed ballot, and handle multiple live elections without erroring.
+  const nowIso = new Date().toISOString()
   const { data: liveElection } = await supabase
     .from('elections')
     .select('id, title, end_at')
     .eq('status', 'live')
+    .lte('start_at', nowIso)
+    .gt('end_at', nowIso)
+    .order('end_at', { ascending: true })
+    .limit(1)
     .maybeSingle()
 
   // Manifestos and discussion posts together, newest first.
@@ -66,6 +75,12 @@ export default async function FeedPage() {
     }
   })
 
+  const reactions = await getReactionsForPosts(
+    supabase,
+    posts.map((p) => p.id),
+    profile.id,
+  )
+
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr,280px]">
       <div className="flex flex-col gap-4">
@@ -109,6 +124,12 @@ export default async function FeedPage() {
                   ) : post.author.id === profile.id ? (
                     <DeletePostButton postId={post.id} />
                   ) : undefined
+                }
+                reactions={
+                  <PostReactions
+                    postId={post.id}
+                    initial={reactions.get(post.id) ?? { likes: 0, dislikes: 0, mine: 0 }}
+                  />
                 }
                 footer={
                   <Link

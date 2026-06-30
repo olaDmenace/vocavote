@@ -24,11 +24,13 @@ export function PostCard({
   post,
   footer,
   actions,
+  reactions,
   showMatric = false,
 }: {
   post: FeedPost
   footer?: React.ReactNode
   actions?: React.ReactNode
+  reactions?: React.ReactNode
   /** Matric numbers are PII — only admins (or the author themselves) see them. */
   showMatric?: boolean
 }) {
@@ -78,7 +80,12 @@ export function PostCard({
         <Markdown body={post.body} />
       </div>
 
-      {footer ? <div className="mt-3">{footer}</div> : null}
+      {reactions || footer ? (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          {reactions ?? <span />}
+          {footer ?? null}
+        </div>
+      ) : null}
     </article>
   )
 }

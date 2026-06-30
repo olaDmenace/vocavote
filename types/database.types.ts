@@ -156,6 +156,38 @@ export type Database = {
           },
         ]
       }
+      post_reactions: {
+        Row: {
+          created_at: string
+          id: number
+          post_id: number
+          user_id: string
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          post_id: number
+          user_id: string
+          value: number
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          post_id?: number
+          user_id?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_reactions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       elections: {
         Row: {
           created_at: string

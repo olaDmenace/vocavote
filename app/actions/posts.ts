@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import {
   POST_IMAGE_MAX_BYTES,
   POST_IMAGE_MIME_WHITELIST,
@@ -40,18 +41,22 @@ export async function uploadPostImage(
   if (!user) return err('unauthenticated')
 
   const ext = EXT_BY_MIME[file.type as (typeof POST_IMAGE_MIME_WHITELIST)[number]]
-  // Folder = uid so storage RLS lets only this user write here.
+  // Folder = uid so the path is scoped to this user.
   const path = `${user.id}/${Date.now()}-${Math.round(file.size)}.${ext}`
 
+  // Use the service-role client for the upload: the user-scoped SSR client
+  // doesn't satisfy the post-media owner-folder policy from a server action.
+  // The path is server-controlled to the user's own folder, so this is safe.
+  const admin = createAdminClient()
   const bytes = new Uint8Array(await file.arrayBuffer())
-  const { error: uploadError } = await supabase.storage
+  const { error: uploadError } = await admin.storage
     .from('post-media')
     .upload(path, bytes, { contentType: file.type, cacheControl: '3600' })
   if (uploadError) return err('unknown', uploadError.message)
 
   const {
     data: { publicUrl },
-  } = supabase.storage.from('post-media').getPublicUrl(path)
+  } = admin.storage.from('post-media').getPublicUrl(path)
   return ok({ url: publicUrl })
 }
 
@@ -85,7 +90,11 @@ export async function createPost(
   }
 
   if (parsed.data.type === 'manifesto' && parsed.data.candidateId) {
-    await supabase
+    // Students intentionally have no UPDATE policy on `candidates` (it would let
+    // them self-approve via approved_at). Persist just the manifesto link through
+    // the service-role client, scoped to the user's own candidate row.
+    const admin = createAdminClient()
+    await admin
       .from('candidates')
       .update({ manifesto_post_id: data.id })
       .eq('id', parsed.data.candidateId)
@@ -151,6 +160,67 @@ export async function deletePost(input: {
   revalidatePath('/feed')
   revalidatePath(`/profile/${user.id}`)
   return ok(undefined)
+}
+
+const reactSchema = z.object({
+  postId: z.coerce.number().int().positive(),
+  value: z.union([z.literal(1), z.literal(-1)]),
+})
+
+export type ReactionState = { likes: number; dislikes: number; mine: 1 | -1 | 0 }
+
+export async function react(
+  input: z.input<typeof reactSchema>,
+): Promise<ActionResult<ReactionState>> {
+  const parsed = reactSchema.safeParse(input)
+  if (!parsed.success) return err('invalid_input', parsed.error.issues[0]?.message)
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return err('unauthenticated')
+
+  const { postId, value } = parsed.data
+
+  const { data: existing } = await supabase
+    .from('post_reactions')
+    .select('value')
+    .eq('post_id', postId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (existing && existing.value === value) {
+    // Clicking the same side again clears the reaction.
+    const { error } = await supabase
+      .from('post_reactions')
+      .delete()
+      .eq('post_id', postId)
+      .eq('user_id', user.id)
+    if (error) return err('unknown', error.message)
+  } else {
+    const { error } = await supabase
+      .from('post_reactions')
+      .upsert({ post_id: postId, user_id: user.id, value }, { onConflict: 'post_id,user_id' })
+    if (error) return err('unknown', error.message)
+  }
+
+  const { data: rows } = await supabase
+    .from('post_reactions')
+    .select('value, user_id')
+    .eq('post_id', postId)
+
+  let likes = 0
+  let dislikes = 0
+  let mine: 1 | -1 | 0 = 0
+  for (const r of rows ?? []) {
+    if (r.value === 1) likes++
+    else if (r.value === -1) dislikes++
+    if (r.user_id === user.id) mine = r.value as 1 | -1
+  }
+
+  revalidatePath('/feed')
+  return ok({ likes, dislikes, mine })
 }
 
 export async function createComment(

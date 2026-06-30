@@ -5,6 +5,8 @@ import { requireProfile } from '@/lib/auth/guards'
 import { PostCard, type FeedPost } from '@/components/feed/post-card'
 import { CommentThread, type FeedComment } from '@/components/feed/comments'
 import { PostModerationMenu } from '@/components/feed/post-moderation-menu'
+import { PostReactions } from '@/components/feed/post-reactions'
+import { getReactionsForPosts } from '@/lib/reactions/fetch'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ManifestoEditor } from './manifesto-editor'
 
@@ -32,15 +34,19 @@ export default async function CandidatePage({ params }: Props) {
   const student = Array.isArray(candidate.student) ? candidate.student[0] : candidate.student
   if (!student) notFound()
 
-  // Manifesto post (if any)
+  // Manifesto post (if any). Look it up by candidate_id rather than trusting
+  // candidates.manifesto_post_id, which can lag behind the actual post.
   let manifestoPost: FeedPost | null = null
   let manifestoComments: FeedComment[] = []
-  if (candidate.manifesto_post_id) {
+  {
     const { data: post } = await supabase
       .from('posts')
       .select('id, type, title, body, created_at, candidate_id')
-      .eq('id', candidate.manifesto_post_id)
+      .eq('candidate_id', candidate.id)
+      .eq('type', 'manifesto')
       .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle()
 
     if (post) {
@@ -90,6 +96,10 @@ export default async function CandidatePage({ params }: Props) {
   const isOwner = viewer.id === student.id
   const canEditManifesto = isOwner && candidate.approved_at !== null
   const canSeeMatric = viewer.role === 'admin' || isOwner
+
+  const manifestoReactions = manifestoPost
+    ? (await getReactionsForPosts(supabase, [manifestoPost.id], viewer.id)).get(manifestoPost.id)
+    : undefined
 
   return (
     <div className="grid gap-6 md:grid-cols-[320px,1fr]">
@@ -157,6 +167,12 @@ export default async function CandidatePage({ params }: Props) {
             <PostCard
               post={manifestoPost}
               showMatric={canSeeMatric}
+              reactions={
+                <PostReactions
+                  postId={manifestoPost.id}
+                  initial={manifestoReactions ?? { likes: 0, dislikes: 0, mine: 0 }}
+                />
+              }
               actions={
                 viewer.role === 'admin' ? (
                   <PostModerationMenu postId={manifestoPost.id} status="active" />

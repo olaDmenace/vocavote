@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ImagePlus } from 'lucide-react'
+import { ImagePlus, X } from 'lucide-react'
 import { createPost, uploadPostImage } from '@/app/actions/posts'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -16,22 +16,29 @@ export function CreatePostForm() {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
   const [body, setBody] = useState('')
+  const [images, setImages] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [isUploading, setIsUploading] = useState(false)
 
+  const canPost = Boolean(body.trim() || images.length > 0)
+
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const trimmed = body.trim()
-    if (!trimmed) return
+    if (!canPost) return
     setError(null)
+    // Attach uploaded images as Markdown at the end of the post body.
+    const finalBody = [body.trim(), ...images.map((u) => `![image](${u})`)]
+      .filter(Boolean)
+      .join('\n\n')
     startTransition(async () => {
-      const result = await createPost({ type: 'discussion', body: trimmed })
+      const result = await createPost({ type: 'discussion', body: finalBody })
       if (!result.ok) {
         setError(result.error.message)
         return
       }
       setBody('')
+      setImages([])
       router.refresh()
     })
   }
@@ -42,8 +49,7 @@ export function CreatePostForm() {
 
   function onImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    // Reset so picking the same file again re-triggers change.
-    e.target.value = ''
+    e.target.value = '' // allow re-picking the same file
     if (!file) return
     if (file.size > POST_IMAGE_MAX_BYTES) {
       setError('Image must be 5 MB or smaller.')
@@ -64,9 +70,12 @@ export function CreatePostForm() {
         setError(result.error.message)
         return
       }
-      // Append the image as Markdown; it renders inline in the feed.
-      setBody((prev) => `${prev}${prev && !prev.endsWith('\n') ? '\n\n' : ''}![image](${result.data.url})\n`)
+      setImages((prev) => [...prev, result.data.url])
     })
+  }
+
+  function removeImage(url: string) {
+    setImages((prev) => prev.filter((u) => u !== url))
   }
 
   return (
@@ -79,6 +88,26 @@ export function CreatePostForm() {
         rows={3}
         maxLength={8000}
       />
+
+      {images.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {images.map((url) => (
+            <div key={url} className="relative h-20 w-20 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt="upload preview" className="h-full w-full object-cover" />
+              <button
+                type="button"
+                onClick={() => removeImage(url)}
+                aria-label="Remove image"
+                className="absolute right-0.5 top-0.5 grid h-5 w-5 place-items-center rounded-full bg-zinc-900/70 text-white hover:bg-zinc-900"
+              >
+                <X className="h-3 w-3" aria-hidden="true" />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       <input
         ref={fileRef}
         type="file"
@@ -97,7 +126,7 @@ export function CreatePostForm() {
           <ImagePlus className="h-4 w-4" aria-hidden="true" />
           {isUploading ? 'Uploading…' : 'Add image'}
         </Button>
-        <Button type="submit" disabled={isPending || isUploading || !body.trim()}>
+        <Button type="submit" disabled={isPending || isUploading || !canPost}>
           {isPending && !isUploading ? 'Posting…' : 'Post'}
         </Button>
       </div>
