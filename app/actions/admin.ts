@@ -15,6 +15,7 @@ import {
   setUserRoleSchema,
 } from '@/lib/validation/admin'
 import { isSelfTargeted } from '@/lib/auth/is-self-targeted'
+import { notify, notifyMany, studentRecipientIds } from '@/lib/notifications/create'
 import { ok, err, type ActionResult } from '@/types/domain'
 
 async function requireAdminClient() {
@@ -92,6 +93,22 @@ export async function setElectionStatus(
     target_id: parsed.data.id,
   })
 
+  // Announce to all students when voting opens.
+  if (parsed.data.status === 'live') {
+    const { data: el } = await ctx.supabase
+      .from('elections')
+      .select('title')
+      .eq('id', parsed.data.id)
+      .maybeSingle()
+    const students = await studentRecipientIds()
+    await notifyMany(students, {
+      actorId: ctx.user.id,
+      type: 'election_live',
+      electionId: parsed.data.id,
+      data: { election_title: el?.title ?? undefined },
+    })
+  }
+
   revalidatePath('/elections')
   revalidatePath(`/elections/${parsed.data.id}`)
   revalidatePath('/dashboard')
@@ -120,6 +137,20 @@ export async function publishResults(input: {
     action: 'results.publish',
     target_type: 'elections',
     target_id: input.electionId,
+  })
+
+  // Announce published results to all students.
+  const { data: el } = await ctx.supabase
+    .from('elections')
+    .select('title')
+    .eq('id', input.electionId)
+    .maybeSingle()
+  const students = await studentRecipientIds()
+  await notifyMany(students, {
+    actorId: ctx.user.id,
+    type: 'results_published',
+    electionId: input.electionId,
+    data: { election_title: el?.title ?? undefined },
   })
 
   revalidatePath(`/elections/${input.electionId}`)
@@ -211,6 +242,19 @@ export async function nominateCandidate(
     return err('unknown', error?.message ?? 'Failed to add candidate.')
   }
 
+  // Let the nominated student know.
+  const { data: position } = await ctx.supabase
+    .from('positions')
+    .select('title')
+    .eq('id', parsed.data.positionId)
+    .maybeSingle()
+  await notify({
+    recipientId: parsed.data.studentId,
+    actorId: ctx.user.id,
+    type: 'candidacy_nominated',
+    data: { position_title: position?.title ?? undefined, candidate_id: data.id },
+  })
+
   revalidatePath('/elections')
   return ok({ id: data.id })
 }
@@ -233,6 +277,22 @@ export async function approveCandidate(input: {
     target_type: 'candidates',
     target_id: input.candidateId,
   })
+
+  // Let the candidate know they were approved.
+  const { data: cand } = await ctx.supabase
+    .from('candidates')
+    .select('student_id, position:positions(title)')
+    .eq('id', input.candidateId)
+    .maybeSingle()
+  if (cand?.student_id) {
+    const position = Array.isArray(cand.position) ? cand.position[0] : cand.position
+    await notify({
+      recipientId: cand.student_id,
+      actorId: ctx.user.id,
+      type: 'candidacy_approved',
+      data: { position_title: position?.title ?? undefined, candidate_id: input.candidateId },
+    })
+  }
 
   revalidatePath('/elections')
   return ok(undefined)

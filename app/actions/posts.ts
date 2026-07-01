@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { notify, adminRecipientIds } from '@/lib/notifications/create'
 import {
   POST_IMAGE_MAX_BYTES,
   POST_IMAGE_MIME_WHITELIST,
@@ -101,6 +102,27 @@ export async function createPost(
       .eq('student_id', user.id)
   }
 
+  // Notify admins of new posts (for moderation / awareness).
+  const [{ data: actor }, admins] = await Promise.all([
+    supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
+    adminRecipientIds(),
+  ])
+  await Promise.all(
+    admins.map((adminId) =>
+      notify({
+        recipientId: adminId,
+        actorId: user.id,
+        type: 'new_post',
+        postId: data.id,
+        data: {
+          actor_name: actor?.full_name ?? 'Someone',
+          is_manifesto: parsed.data.type === 'manifesto',
+          candidate_id: parsed.data.candidateId ?? undefined,
+        },
+      }),
+    ),
+  )
+
   revalidatePath('/feed')
   if (parsed.data.candidateId) {
     revalidatePath(`/candidates/${parsed.data.candidateId}`)
@@ -190,8 +212,10 @@ export async function react(
     .eq('user_id', user.id)
     .maybeSingle()
 
+  let cleared = false
   if (existing && existing.value === value) {
     // Clicking the same side again clears the reaction.
+    cleared = true
     const { error } = await supabase
       .from('post_reactions')
       .delete()
@@ -203,6 +227,26 @@ export async function react(
       .from('post_reactions')
       .upsert({ post_id: postId, user_id: user.id, value }, { onConflict: 'post_id,user_id' })
     if (error) return err('unknown', error.message)
+  }
+
+  // Notify the post author when a like/dislike is set (not when cleared).
+  if (!cleared) {
+    const [{ data: post }, { data: actor }] = await Promise.all([
+      supabase.from('posts').select('author_id, candidate_id').eq('id', postId).maybeSingle(),
+      supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
+    ])
+    if (post?.author_id) {
+      await notify({
+        recipientId: post.author_id,
+        actorId: user.id,
+        type: value === 1 ? 'reaction_like' : 'reaction_dislike',
+        postId,
+        data: {
+          actor_name: actor?.full_name ?? 'Someone',
+          candidate_id: post.candidate_id ?? undefined,
+        },
+      })
+    }
   }
 
   const { data: rows } = await supabase
@@ -245,6 +289,31 @@ export async function createComment(
     .select('id, created_at')
     .single()
   if (error || !data) return err('unknown', error?.message ?? 'Could not post comment.')
+
+  // Notify the post author of the reply (best effort).
+  const [{ data: post }, { data: actor }] = await Promise.all([
+    supabase
+      .from('posts')
+      .select('author_id, type, candidate_id, title')
+      .eq('id', parsed.data.postId)
+      .maybeSingle(),
+    supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
+  ])
+  if (post?.author_id) {
+    await notify({
+      recipientId: post.author_id,
+      actorId: user.id,
+      type: 'reply',
+      postId: parsed.data.postId,
+      commentId: data.id,
+      data: {
+        actor_name: actor?.full_name ?? 'Someone',
+        is_manifesto: post.type === 'manifesto',
+        candidate_id: post.candidate_id ?? undefined,
+        post_title: post.title ?? undefined,
+      },
+    })
+  }
 
   return ok({ commentId: data.id, createdAt: data.created_at })
 }
