@@ -17,29 +17,22 @@ export default async function CandidatesPage() {
   const viewer = await requireProfile()
   const supabase = await createClient()
 
-  // Show every live election. Only fall back to the most recent election when
-  // none are live, so the page works whether there are 0, 1, or several live.
+  // Candidates are a campaign-period view, so only show live elections (open or
+  // upcoming). Closed/published elections belong on the results page, not here.
   const { data: liveElections } = await supabase
     .from('elections')
     .select('id, title, status, start_at, end_at')
     .eq('status', 'live')
     .order('start_at', { ascending: false })
 
-  let elections: ElectionRow[] = liveElections ?? []
-  if (elections.length === 0) {
-    const { data: recent } = await supabase
-      .from('elections')
-      .select('id, title, status, start_at, end_at')
-      .order('start_at', { ascending: false })
-      .limit(1)
-    elections = recent ?? []
-  }
+  const elections: ElectionRow[] = liveElections ?? []
 
   if (elections.length === 0) {
     return (
       <Card>
         <CardContent className="pt-6 text-sm text-zinc-500">
-          No election to show yet.
+          No election is currently active. Candidates appear here once the electoral
+          committee opens an election.
         </CardContent>
       </Card>
     )

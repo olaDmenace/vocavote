@@ -103,25 +103,31 @@ export default async function ResultsPage({ params }: Props) {
 
       {Array.from(grouped.entries()).map(([positionId, g]) => {
         const sorted = [...g.candidates].sort((a, b) => b.count - a.count)
-        const lead = sorted[0]
+        const topCount = sorted[0]?.count ?? 0
+        // A tie is two or more candidates sharing the top (non-zero) count.
+        const leaders = sorted.filter((c) => c.count === topCount && c.count > 0)
+        const isTie = leaders.length > 1
         return (
           <Card key={positionId}>
             <CardHeader>
               <CardTitle>{g.positionTitle}</CardTitle>
-              <CardDescription>{g.total} total votes</CardDescription>
+              <CardDescription>
+                {g.total} total {g.total === 1 ? 'vote' : 'votes'}
+                {isTie ? ` · tie between ${leaders.length} candidates` : ''}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <ul className="flex flex-col gap-2">
                 {sorted.map((c) => {
                   const pct = g.total > 0 ? Math.round((c.count / g.total) * 100) : 0
-                  const isWinner = lead && c.count === lead.count && c.count > 0
+                  const isLeader = c.count === topCount && c.count > 0
                   return (
                     <li key={c.name} className="flex items-center justify-between gap-2 text-sm">
                       <span className="text-zinc-800 dark:text-zinc-200">
                         {c.name}
-                        {isWinner ? (
+                        {isLeader ? (
                           <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
-                            winner
+                            {isTie ? 'tie' : 'winner'}
                           </span>
                         ) : null}
                       </span>

@@ -52,7 +52,7 @@ export function ElectionStatusControls({ electionId, currentStatus, resultsPubli
         </span>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           size="sm"
           variant="outline"
@@ -83,7 +83,7 @@ export function ElectionStatusControls({ electionId, currentStatus, resultsPubli
           </Button>
         ) : null}
         {resultsPublished ? (
-          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+          <span className="inline-flex h-9 items-center rounded-full bg-emerald-100 px-3 text-xs font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
             Results published
           </span>
         ) : null}
