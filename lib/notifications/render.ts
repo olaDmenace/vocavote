@@ -45,8 +45,8 @@ export function renderNotification(n: NotificationRow): { text: string; href: st
       }
     case 'election_live':
       return {
-        text: `Voting is open for ${data.election_title ?? 'an election'}`,
-        href: n.election_id ? `/ballot/${n.election_id}` : '/ballot',
+        text: `${data.election_title ?? 'An election'} is now live — meet the candidates and read their manifestos`,
+        href: '/candidates',
       }
     case 'results_published':
       return {

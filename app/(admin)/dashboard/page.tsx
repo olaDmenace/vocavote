@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Users, Vote, Radio, type LucideIcon } from 'lucide-react'
+import { Users, Vote, Radio, Megaphone, type LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import {
   Card,
@@ -24,7 +24,17 @@ export default async function AdminDashboardPage() {
         .order('start_at', { ascending: false }),
     ])
 
-  const live = liveElections ?? []
+  const now = new Date().getTime()
+  // A "live" election is a campaign (Active) until its voting window opens, then
+  // voting is Open, then it lapses.
+  const live = (liveElections ?? []).map((e) => {
+    const start = new Date(e.start_at).getTime()
+    const end = new Date(e.end_at).getTime()
+    const phase = now < start ? 'active' : now >= end ? 'ended' : 'open'
+    return { ...e, phase }
+  })
+  const openCount = live.filter((e) => e.phase === 'open').length
+  const activeCount = live.filter((e) => e.phase === 'active').length
 
   return (
     <div className="flex flex-col gap-6">
@@ -37,10 +47,11 @@ export default async function AdminDashboardPage() {
         </p>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Total students" value={voterCount ?? 0} icon={Users} />
         <Stat label="Elections" value={electionCount ?? 0} icon={Vote} />
-        <Stat label="Live now" value={live.length} icon={Radio} accent={live.length > 0} />
+        <Stat label="Active (campaign)" value={activeCount} icon={Megaphone} accent={activeCount > 0} />
+        <Stat label="Voting open now" value={openCount} icon={Radio} accent={openCount > 0} />
       </div>
 
       {live.length > 0 ? (
@@ -51,9 +62,28 @@ export default async function AdminDashboardPage() {
           {live.map((election) => (
             <Card key={election.id}>
               <CardHeader>
-                <CardTitle>{election.title}</CardTitle>
+                <CardTitle className="flex flex-wrap items-center gap-2">
+                  {election.title}
+                  {election.phase === 'open' ? (
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                      Voting open
+                    </span>
+                  ) : election.phase === 'active' ? (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                      Active · campaign
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                      Voting closed
+                    </span>
+                  )}
+                </CardTitle>
                 <CardDescription>
-                  Live · ends {formatDateTime(election.end_at)}
+                  {election.phase === 'active'
+                    ? `Voting opens ${formatDateTime(election.start_at)}`
+                    : election.phase === 'open'
+                      ? `Voting closes ${formatDateTime(election.end_at)}`
+                      : `Voting closed ${formatDateTime(election.end_at)}`}
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex gap-3">

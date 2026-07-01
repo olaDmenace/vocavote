@@ -576,6 +576,7 @@ export type Database = {
         Returns: Json
       }
       check_throttle: { Args: { p_matric_no: string }; Returns: boolean }
+      election_turnout: { Args: { p_election_id: number }; Returns: number }
       is_admin: { Args: never; Returns: boolean }
       record_login_attempt: {
         Args: { p_ip_hash: string; p_matric_no: string; p_success: boolean }

@@ -141,7 +141,7 @@ export function Ballot({
                           checked={isSelected}
                           onChange={() => {}}
                           onClick={() => onSelect(position.id, c.id)}
-                          className="h-4 w-4"
+                          className="h-4 w-4 shrink-0"
                           disabled={isPending}
                         />
                         {c.isOption ? (
@@ -163,7 +163,7 @@ export function Ballot({
                             </div>
                             <Link
                               href={`/candidates/${c.id}`}
-                              className="text-xs font-medium text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-300"
+                              className="shrink-0 whitespace-nowrap text-xs font-medium text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-300"
                             >
                               Read manifesto
                             </Link>
