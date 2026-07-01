@@ -52,3 +52,7 @@ export const setUserActiveSchema = z.object({
   userId: z.string().uuid(),
   isActive: z.boolean(),
 })
+
+export const resetUserPasswordSchema = z.object({
+  userId: z.string().uuid(),
+})

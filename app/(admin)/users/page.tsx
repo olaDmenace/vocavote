@@ -1,7 +1,8 @@
 import { requireAdmin } from '@/lib/auth/guards'
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { UserRow, type UserRowData } from './user-row'
+import { type UserRowData } from './user-row'
+import { UsersManager } from './users-manager'
 
 export default async function UsersPage() {
   const admin = await requireAdmin()
@@ -39,24 +40,7 @@ export default async function UsersPage() {
           <CardDescription>{rows.length} total</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-zinc-500">
-                <tr>
-                  <th className="py-2 pr-4">User</th>
-                  <th className="py-2 pr-4">Department</th>
-                  <th className="py-2 pr-4">Role</th>
-                  <th className="py-2 pr-4">Status</th>
-                  <th className="py-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                {rows.map((u) => (
-                  <UserRow key={u.id} user={u} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <UsersManager rows={rows} />
         </CardContent>
       </Card>
     </div>

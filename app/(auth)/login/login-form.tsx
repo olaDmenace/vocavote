@@ -71,6 +71,10 @@ export function LoginForm({ next }: { next?: string }) {
       <Button type="submit" disabled={isPending}>
         {isPending ? 'Signing in…' : 'Sign in'}
       </Button>
+
+      <p className="text-center text-xs text-zinc-500">
+        Forgot your password? Contact the electoral committee to have it reset.
+      </p>
     </form>
   )
 }

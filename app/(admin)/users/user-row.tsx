@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { setUserRole, setUserActive } from '@/app/actions/admin'
+import { setUserRole, setUserActive, resetUserPassword } from '@/app/actions/admin'
 import { Button } from '@/components/ui/button'
 
 export type UserRowData = {
@@ -19,6 +19,7 @@ export function UserRow({ user }: { user: UserRowData }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [tempPassword, setTempPassword] = useState<string | null>(null)
 
   function run(fn: () => Promise<{ ok: boolean; error?: { message: string } }>) {
     setError(null)
@@ -29,6 +30,20 @@ export function UserRow({ user }: { user: UserRowData }) {
         return
       }
       router.refresh()
+    })
+  }
+
+  function onResetPassword() {
+    if (!confirm(`Reset ${user.fullName}'s password to a new temporary one?`)) return
+    setError(null)
+    setTempPassword(null)
+    startTransition(async () => {
+      const result = await resetUserPassword({ userId: user.id })
+      if (!result.ok) {
+        setError(result.error.message)
+        return
+      }
+      setTempPassword(result.data.tempPassword)
     })
   }
 
@@ -81,6 +96,22 @@ export function UserRow({ user }: { user: UserRowData }) {
             >
               {user.isActive ? 'Suspend' : 'Reactivate'}
             </Button>
+            <Button size="sm" variant="ghost" disabled={isPending} onClick={onResetPassword}>
+              Reset password
+            </Button>
+            {tempPassword ? (
+              <span className="flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                Temp password:{' '}
+                <code className="font-mono font-semibold">{tempPassword}</code>
+                <button
+                  type="button"
+                  className="ml-1 underline"
+                  onClick={() => navigator.clipboard?.writeText(tempPassword)}
+                >
+                  copy
+                </button>
+              </span>
+            ) : null}
           </div>
         )}
       </td>

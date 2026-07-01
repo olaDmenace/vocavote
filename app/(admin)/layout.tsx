@@ -16,6 +16,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             <AdminLink href="/elections">Elections</AdminLink>
             <AdminLink href="/moderation">Moderation</AdminLink>
             <AdminLink href="/users">Users</AdminLink>
+            <AdminLink href="/activity">Activity</AdminLink>
           </nav>
         </aside>
         <div className="min-w-0 flex-1">{children}</div>

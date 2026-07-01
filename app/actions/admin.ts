@@ -1,15 +1,18 @@
 'use server'
 
+import { randomBytes } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import {
   createCandidateSchema,
   createElectionSchema,
   createPositionSchema,
   moderateCommentSchema,
   moderatePostSchema,
+  resetUserPasswordSchema,
   setElectionStatusSchema,
   setUserActiveSchema,
   setUserRoleSchema,
@@ -214,6 +217,14 @@ export async function createPosition(
     .single()
   if (error || !data) return err('unknown', error?.message ?? 'Failed to add position.')
 
+  await ctx.supabase.from('audit_log').insert({
+    actor_id: ctx.user.id,
+    action: 'position.create',
+    target_type: 'positions',
+    target_id: data.id,
+    meta: { election_id: parsed.data.electionId, title: parsed.data.title },
+  })
+
   revalidatePath(`/elections/${parsed.data.electionId}`)
   return ok({ id: data.id })
 }
@@ -241,6 +252,14 @@ export async function nominateCandidate(
     }
     return err('unknown', error?.message ?? 'Failed to add candidate.')
   }
+
+  await ctx.supabase.from('audit_log').insert({
+    actor_id: ctx.user.id,
+    action: 'candidate.nominate',
+    target_type: 'candidates',
+    target_id: data.id,
+    meta: { position_id: parsed.data.positionId, student_id: parsed.data.studentId },
+  })
 
   // Let the nominated student know.
   const { data: position } = await ctx.supabase
@@ -309,6 +328,13 @@ export async function revokeCandidate(input: {
     .update({ approved_at: null, approved_by: null })
     .eq('id', input.candidateId)
   if (error) return err('unknown', error.message)
+
+  await ctx.supabase.from('audit_log').insert({
+    actor_id: ctx.user.id,
+    action: 'candidate.revoke',
+    target_type: 'candidates',
+    target_id: input.candidateId,
+  })
 
   revalidatePath('/elections')
   return ok(undefined)
@@ -425,4 +451,38 @@ export async function setUserActive(
 
   revalidatePath('/users')
   return ok(undefined)
+}
+
+export async function resetUserPassword(
+  input: z.input<typeof resetUserPasswordSchema>,
+): Promise<ActionResult<{ tempPassword: string }>> {
+  const parsed = resetUserPasswordSchema.safeParse(input)
+  if (!parsed.success) return err('invalid_input', parsed.error.issues[0]?.message)
+
+  const ctx = await requireAdminClient()
+  if (!ctx.ok) return err('forbidden')
+  if (isSelfTargeted(ctx.user.id, parsed.data.userId)) {
+    return err('forbidden', 'Use your own account settings to change your password.')
+  }
+
+  // Set a strong temporary password via the auth admin API (service role). The
+  // admin relays it to the user, who signs in with it. (Synthetic matric emails
+  // aren't real inboxes, so an email reset link can't be delivered.)
+  const tempPassword = randomBytes(9).toString('base64url')
+  const admin = createAdminClient()
+  const { error } = await admin.auth.admin.updateUserById(parsed.data.userId, {
+    password: tempPassword,
+  })
+  if (error) return err('unknown', error.message)
+
+  await ctx.supabase.from('audit_log').insert({
+    actor_id: ctx.user.id,
+    action: 'user.password_reset',
+    target_type: 'profiles',
+    target_id: null,
+    meta: { user_id: parsed.data.userId },
+  })
+
+  revalidatePath('/users')
+  return ok({ tempPassword })
 }
