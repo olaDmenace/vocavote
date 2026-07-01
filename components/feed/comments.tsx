@@ -129,7 +129,26 @@ export function CommentThread({ postId, initialComments, viewer, isAdmin = false
         setBody(trimmed)
         return
       }
-      // Realtime listener will append; in case it lags, refresh server state.
+      // Append the confirmed comment immediately so it shows even when the
+      // realtime channel is slow or unavailable; the realtime listener dedupes.
+      setServerComments((prev) =>
+        prev.some((c) => c.id === result.data.commentId)
+          ? prev
+          : [
+              ...prev,
+              {
+                id: result.data.commentId,
+                body: trimmed,
+                created_at: result.data.createdAt,
+                author_id: viewer.id,
+                author: {
+                  full_name: viewer.full_name,
+                  matric_no: viewer.matric_no,
+                  avatar_path: viewer.avatar_path,
+                },
+              },
+            ],
+      )
       router.refresh()
     })
   }

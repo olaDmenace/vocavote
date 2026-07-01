@@ -3,8 +3,15 @@ import { createClient } from '@/lib/supabase/server'
 import { requireProfile } from '@/lib/auth/guards'
 import { Avatar } from '@/components/profile/avatar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { formatDateTime } from '@/lib/utils/format'
 
-type ElectionRow = { id: number; title: string; status: string }
+type ElectionRow = {
+  id: number
+  title: string
+  status: string
+  start_at: string
+  end_at: string
+}
 
 export default async function CandidatesPage() {
   const viewer = await requireProfile()
@@ -14,7 +21,7 @@ export default async function CandidatesPage() {
   // none are live, so the page works whether there are 0, 1, or several live.
   const { data: liveElections } = await supabase
     .from('elections')
-    .select('id, title, status')
+    .select('id, title, status, start_at, end_at')
     .eq('status', 'live')
     .order('start_at', { ascending: false })
 
@@ -22,7 +29,7 @@ export default async function CandidatesPage() {
   if (elections.length === 0) {
     const { data: recent } = await supabase
       .from('elections')
-      .select('id, title, status')
+      .select('id, title, status, start_at, end_at')
       .order('start_at', { ascending: false })
       .limit(1)
     elections = recent ?? []
@@ -57,6 +64,7 @@ export default async function CandidatesPage() {
   }
 
   const isAdmin = viewer.role === 'admin'
+  const now = new Date().getTime()
 
   return (
     <div className="flex flex-col gap-10">
@@ -73,18 +81,32 @@ export default async function CandidatesPage() {
 
       {elections.map((election) => {
         const electionPositions = positionsByElection.get(election.id) ?? []
+        const badge = electionBadge(election, now)
+        const isOpen = badge.state === 'open'
         return (
           <section key={election.id} className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 pb-2 dark:border-zinc-800">
-              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-                {election.title}
-              </h2>
-              {election.status === 'live' ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+                  {election.title}
+                </h2>
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${badge.className}`}>
+                  {badge.label}
+                </span>
+              </div>
+              {isOpen ? (
                 <Link
                   href={`/ballot/${election.id}`}
                   className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
                 >
                   Go to ballot
+                </Link>
+              ) : election.status === 'live' && badge.state === 'upcoming' ? (
+                <Link
+                  href={`/ballot/${election.id}`}
+                  className="text-sm font-medium text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-300"
+                >
+                  Preview ballot →
                 </Link>
               ) : null}
             </div>
@@ -146,4 +168,35 @@ export default async function CandidatesPage() {
       })}
     </div>
   )
+}
+
+type Badge = { state: 'open' | 'upcoming' | 'closed'; label: string; className: string }
+
+// Human-readable status shown next to each election on the Candidates page so
+// students know whether voting is open, coming up, or over.
+function electionBadge(election: ElectionRow, now: number): Badge {
+  const start = new Date(election.start_at).getTime()
+  const end = new Date(election.end_at).getTime()
+  const green =
+    'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
+  const amber = 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
+  const gray = 'bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200'
+
+  if (election.status === 'live') {
+    if (now < start) {
+      return {
+        state: 'upcoming',
+        label: `Voting opens ${formatDateTime(election.start_at)}`,
+        className: amber,
+      }
+    }
+    if (now >= end) {
+      return { state: 'closed', label: 'Voting closed', className: gray }
+    }
+    return { state: 'open', label: 'Voting open', className: green }
+  }
+  if (election.status === 'closed') {
+    return { state: 'closed', label: 'Closed', className: gray }
+  }
+  return { state: 'upcoming', label: 'Draft', className: gray }
 }

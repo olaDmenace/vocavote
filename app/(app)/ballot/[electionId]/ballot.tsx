@@ -40,7 +40,21 @@ export function Ballot({
   const [statuses, setStatuses] = useState<Record<number, { tone: 'success' | 'error'; text: string }>>({})
 
   function onSelect(positionId: number, candidateId: number) {
-    setSelections((prev) => ({ ...prev, [positionId]: candidateId }))
+    // One candidate per position; clicking the selected one again clears it.
+    setSelections((prev) => ({
+      ...prev,
+      [positionId]: prev[positionId] === candidateId ? undefined : candidateId,
+    }))
+    setConfirmingPositionId((cur) => (cur === positionId ? null : cur))
+  }
+
+  function onClear(positionId: number) {
+    setSelections((prev) => {
+      const next = { ...prev }
+      delete next[positionId]
+      return next
+    })
+    setConfirmingPositionId((cur) => (cur === positionId ? null : cur))
   }
 
   function submitVote(positionId: number, candidateId: number) {
@@ -101,7 +115,9 @@ export function Ballot({
                 <p className="text-sm text-zinc-500">No approved candidates yet.</p>
               ) : (
                 <fieldset className="flex flex-col gap-2" aria-label={position.title}>
-                  <legend className="sr-only">{position.title}</legend>
+                  <legend className="pb-1 text-xs text-zinc-500">
+                    Select one candidate for {position.title}.
+                  </legend>
                   {position.candidates.map((c) => {
                     const inputId = `pos-${position.id}-cand-${c.id}`
                     const isSelected = selected === c.id
@@ -121,7 +137,8 @@ export function Ballot({
                           id={inputId}
                           value={c.id}
                           checked={isSelected}
-                          onChange={() => onSelect(position.id, c.id)}
+                          onChange={() => {}}
+                          onClick={() => onSelect(position.id, c.id)}
                           className="h-4 w-4"
                           disabled={isPending}
                         />
@@ -178,7 +195,16 @@ export function Ballot({
                   </div>
                 </div>
               ) : (
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
+                  {selected ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => onClear(position.id)}
+                      disabled={isPending}
+                    >
+                      Clear
+                    </Button>
+                  ) : null}
                   <Button
                     disabled={!selected || isPending || position.candidates.length === 0}
                     onClick={() => setConfirmingPositionId(position.id)}

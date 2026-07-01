@@ -73,11 +73,21 @@ export default async function FeedPage() {
     }
   })
 
-  const reactions = await getReactionsForPosts(
-    supabase,
-    posts.map((p) => p.id),
-    profile.id,
-  )
+  const postIds = posts.map((p) => p.id)
+  const reactions = await getReactionsForPosts(supabase, postIds, profile.id)
+
+  // Reply counts for each post, so the feed can show "View N replies".
+  const replyCounts = new Map<number, number>()
+  if (postIds.length > 0) {
+    const { data: commentRows } = await supabase
+      .from('comments')
+      .select('post_id')
+      .in('post_id', postIds)
+      .eq('status', 'active')
+    for (const row of commentRows ?? []) {
+      replyCounts.set(row.post_id, (replyCounts.get(row.post_id) ?? 0) + 1)
+    }
+  }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr,280px]">
@@ -132,16 +142,23 @@ export default async function FeedPage() {
                   />
                 }
                 footer={
-                  <Link
-                    href={
-                      post.candidate_id
-                        ? `/candidates/${post.candidate_id}`
-                        : `/profile/${post.author.id}`
-                    }
-                    className="text-xs font-medium text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-300"
-                  >
-                    {post.candidate_id ? 'View manifesto & comments →' : 'View author →'}
-                  </Link>
+                  post.candidate_id ? (
+                    <Link
+                      href={`/candidates/${post.candidate_id}`}
+                      className="text-xs font-medium text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-300"
+                    >
+                      View manifesto &amp; comments →
+                    </Link>
+                  ) : (
+                    <Link
+                      href={`/posts/${post.id}`}
+                      className="text-xs font-medium text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-300"
+                    >
+                      {replyCounts.get(post.id)
+                        ? `View ${replyCounts.get(post.id)} ${replyCounts.get(post.id) === 1 ? 'reply' : 'replies'} →`
+                        : 'Reply →'}
+                    </Link>
+                  )
                 }
               />
             </div>
