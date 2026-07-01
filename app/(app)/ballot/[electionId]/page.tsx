@@ -26,12 +26,13 @@ export default async function BallotPage({ params }: Props) {
   if (!election) notFound()
 
   const now = new Date()
-  const isLive =
-    election.status === 'live' &&
-    new Date(election.start_at) <= now &&
-    new Date(election.end_at) > now
+  const started = new Date(election.start_at) <= now
+  const ended = new Date(election.end_at) <= now
+  const isOpen = election.status === 'live' && started && !ended
+  // Voting is scheduled but hasn't opened yet — campaign period.
+  const isUpcoming = election.status === 'live' && !started
 
-  if (!isLive) {
+  if (!isOpen) {
     return (
       <div className="mx-auto max-w-2xl">
         <Card>
@@ -39,20 +40,49 @@ export default async function BallotPage({ params }: Props) {
             <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
               {election.title}
             </h1>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Voting is not open right now.
-            </p>
+
+            {isUpcoming ? (
+              <>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  Voting opens{' '}
+                  <strong className="text-zinc-900 dark:text-zinc-50">
+                    {formatDateTime(election.start_at)}
+                  </strong>
+                  . Meet the candidates and read their manifestos in the meantime.
+                </p>
+                <Link
+                  href="/candidates"
+                  className="text-sm font-medium underline-offset-4 hover:underline"
+                >
+                  Meet the candidates →
+                </Link>
+              </>
+            ) : ended ? (
+              <>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">Voting has closed.</p>
+                {election.results_published ? (
+                  <Link
+                    href={`/results/${election.id}`}
+                    className="text-sm font-medium underline-offset-4 hover:underline"
+                  >
+                    View results →
+                  </Link>
+                ) : (
+                  <p className="text-xs text-zinc-500">
+                    Results will be published by the electoral committee.
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Voting is not open right now.
+              </p>
+            )}
+
             <p className="text-xs text-zinc-500">
-              Window: {formatDateTime(election.start_at)} → {formatDateTime(election.end_at)}
+              Voting window: {formatDateTime(election.start_at)} →{' '}
+              {formatDateTime(election.end_at)}
             </p>
-            {election.results_published ? (
-              <Link
-                href={`/results/${election.id}`}
-                className="text-sm font-medium underline-offset-4 hover:underline"
-              >
-                View results →
-              </Link>
-            ) : null}
             <Link href="/feed" className="text-sm font-medium underline-offset-4 hover:underline">
               Back to feed
             </Link>
@@ -66,7 +96,7 @@ export default async function BallotPage({ params }: Props) {
     supabase
       .from('positions')
       .select(
-        'id, title, description, display_order, candidates(id, approved_at, student:profiles!candidates_student_id_fkey(id, full_name, matric_no, avatar_path), manifesto_post_id, manifesto:posts!candidates_manifesto_post_id_fkey(id, title, body))',
+        'id, title, description, display_order, candidates(id, approved_at, student:profiles!candidates_student_id_fkey(id, full_name, matric_no, avatar_path), manifesto_post_id, manifesto:posts!fk_candidate_manifesto(id, title, body))',
       )
       .eq('election_id', electionId)
       .order('display_order')

@@ -7,25 +7,23 @@ import { DeletePostButton } from '@/components/feed/delete-post-button'
 import { PostReactions } from '@/components/feed/post-reactions'
 import { getReactionsForPosts } from '@/lib/reactions/fetch'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { formatDateTime } from '@/lib/utils/format'
 import { CreatePostForm } from './create-post-form'
 
 export default async function FeedPage() {
   const profile = await requireProfile()
   const supabase = await createClient()
 
-  // Live election banner + ballot link. Match the ballot's own "open" rule
-  // (status live AND inside the voting window) so the banner never points at a
-  // closed ballot, and handle multiple live elections without erroring.
+  // Banner(s) for every election currently open for voting (status live AND
+  // inside the voting window) — one CTA per open election, not just one.
   const nowIso = new Date().toISOString()
-  const { data: liveElection } = await supabase
+  const { data: openElections } = await supabase
     .from('elections')
     .select('id, title, end_at')
     .eq('status', 'live')
     .lte('start_at', nowIso)
     .gt('end_at', nowIso)
     .order('end_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
 
   // Manifestos and discussion posts together, newest first.
   const { data: rawPosts } = await supabase
@@ -84,24 +82,26 @@ export default async function FeedPage() {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr,280px]">
       <div className="flex flex-col gap-4">
-        {liveElection ? (
-          <Card>
+        {(openElections ?? []).map((election) => (
+          <Card key={election.id}>
             <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-6">
               <div>
                 <div className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                  {liveElection.title} is live
+                  {election.title} is live
                 </div>
-                <div className="text-xs text-zinc-500">Cast your vote before it closes.</div>
+                <div className="text-xs text-zinc-500">
+                  Cast your vote before it closes {formatDateTime(election.end_at)}.
+                </div>
               </div>
               <Link
-                href={`/ballot/${liveElection.id}`}
+                href={`/ballot/${election.id}`}
                 className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
               >
                 Go to ballot
               </Link>
             </CardContent>
           </Card>
-        ) : null}
+        ))}
 
         <Card>
           <CardHeader>
