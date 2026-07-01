@@ -26,6 +26,16 @@ export const createPositionSchema = z.object({
   title: z.string().trim().min(2).max(150),
   description: z.string().trim().max(2000).optional(),
   displayOrder: z.coerce.number().int().min(0).default(0),
+  kind: z.enum(['candidates', 'poll']).default('candidates'),
+})
+
+export const addPollOptionSchema = z.object({
+  positionId: z.coerce.number().int().positive(),
+  label: z.string().trim().min(1).max(150),
+})
+
+export const removePollOptionSchema = z.object({
+  candidateId: z.coerce.number().int().positive(),
 })
 
 export const createCandidateSchema = z.object({

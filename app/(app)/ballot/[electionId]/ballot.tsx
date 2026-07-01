@@ -16,12 +16,14 @@ export type BallotCandidate = {
   matricNo: string
   avatarPath: string | null
   manifestoTitle: string | null
+  isOption: boolean
 }
 
 export type BallotPosition = {
   id: number
   title: string
   description: string | null
+  isPoll: boolean
   alreadyVoted: boolean
   candidates: BallotCandidate[]
 }
@@ -116,7 +118,7 @@ export function Ballot({
               ) : (
                 <fieldset className="flex flex-col gap-2" aria-label={position.title}>
                   <legend className="pb-1 text-xs text-zinc-500">
-                    Select one candidate for {position.title}.
+                    Select one {position.isPoll ? 'option' : 'candidate'} for {position.title}.
                   </legend>
                   {position.candidates.map((c) => {
                     const inputId = `pos-${position.id}-cand-${c.id}`
@@ -142,23 +144,31 @@ export function Ballot({
                           className="h-4 w-4"
                           disabled={isPending}
                         />
-                        <Avatar fullName={c.fullName} avatarPath={c.avatarPath} size="sm" />
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate font-medium text-zinc-900 dark:text-zinc-50">
+                        {c.isOption ? (
+                          <div className="min-w-0 flex-1 font-medium text-zinc-900 dark:text-zinc-50">
                             {c.fullName}
                           </div>
-                          <div className="truncate text-xs text-zinc-500">
-                            {showMatric ? c.matricNo : null}
-                            {showMatric && c.manifestoTitle ? ' · ' : ''}
-                            {c.manifestoTitle ?? ''}
-                          </div>
-                        </div>
-                        <Link
-                          href={`/candidates/${c.id}`}
-                          className="text-xs font-medium text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-300"
-                        >
-                          Read manifesto
-                        </Link>
+                        ) : (
+                          <>
+                            <Avatar fullName={c.fullName} avatarPath={c.avatarPath} size="sm" />
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate font-medium text-zinc-900 dark:text-zinc-50">
+                                {c.fullName}
+                              </div>
+                              <div className="truncate text-xs text-zinc-500">
+                                {showMatric ? c.matricNo : null}
+                                {showMatric && c.manifestoTitle ? ' · ' : ''}
+                                {c.manifestoTitle ?? ''}
+                              </div>
+                            </div>
+                            <Link
+                              href={`/candidates/${c.id}`}
+                              className="text-xs font-medium text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-300"
+                            >
+                              Read manifesto
+                            </Link>
+                          </>
+                        )}
                       </label>
                     )
                   })}

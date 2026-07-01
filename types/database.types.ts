@@ -61,27 +61,30 @@ export type Database = {
           approved_by: string | null
           created_at: string
           id: number
+          label: string | null
           manifesto_post_id: number | null
           position_id: number
-          student_id: string
+          student_id: string | null
         }
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
           id?: never
+          label?: string | null
           manifesto_post_id?: number | null
           position_id: number
-          student_id: string
+          student_id?: string | null
         }
         Update: {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
           id?: never
+          label?: string | null
           manifesto_post_id?: number | null
           position_id?: number
-          student_id?: string
+          student_id?: string | null
         }
         Relationships: [
           {
@@ -327,6 +330,7 @@ export type Database = {
           display_order: number
           election_id: number
           id: number
+          kind: string
           title: string
         }
         Insert: {
@@ -335,6 +339,7 @@ export type Database = {
           display_order?: number
           election_id: number
           id?: never
+          kind?: string
           title: string
         }
         Update: {
@@ -343,6 +348,7 @@ export type Database = {
           display_order?: number
           election_id?: number
           id?: never
+          kind?: string
           title?: string
         }
         Relationships: [

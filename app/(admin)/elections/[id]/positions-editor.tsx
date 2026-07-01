@@ -6,6 +6,7 @@ import { createPosition } from '@/app/actions/admin'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Alert } from '@/components/ui/alert'
 
@@ -14,6 +15,7 @@ type Position = {
   title: string
   description: string | null
   display_order: number
+  kind: string
 }
 
 export function PositionsEditor({
@@ -28,6 +30,7 @@ export function PositionsEditor({
   const [error, setError] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [kind, setKind] = useState<'candidates' | 'poll'>('candidates')
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -39,6 +42,7 @@ export function PositionsEditor({
         title: title.trim(),
         description: description.trim() || undefined,
         displayOrder: positions.length,
+        kind,
       })
       if (!result.ok) {
         setError(result.error.message)
@@ -46,6 +50,7 @@ export function PositionsEditor({
       }
       setTitle('')
       setDescription('')
+      setKind('candidates')
       router.refresh()
     })
   }
@@ -60,6 +65,9 @@ export function PositionsEditor({
                 {idx + 1}
               </span>
               <span className="font-medium text-zinc-900 dark:text-zinc-50">{p.title}</span>
+              <span className="ml-2 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                {p.kind === 'poll' ? 'poll' : 'candidates'}
+              </span>
               {p.description ? (
                 <span className="ml-2 text-zinc-500">{p.description}</span>
               ) : null}
@@ -90,6 +98,17 @@ export function PositionsEditor({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Head of the SUG executive council"
             />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="position-kind">Type</Label>
+            <Select
+              id="position-kind"
+              value={kind}
+              onChange={(e) => setKind(e.target.value as 'candidates' | 'poll')}
+            >
+              <option value="candidates">Candidate race (nominate students)</option>
+              <option value="poll">Poll (text options)</option>
+            </Select>
           </div>
         </div>
         <Textarea hidden value="" readOnly aria-hidden="true" className="hidden" />

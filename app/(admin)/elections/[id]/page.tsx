@@ -22,13 +22,13 @@ export default async function ElectionEditorPage({ params }: Props) {
       supabase.from('elections').select('*').eq('id', electionId).maybeSingle(),
       supabase
         .from('positions')
-        .select('id, title, description, display_order')
+        .select('id, title, description, display_order, kind')
         .eq('election_id', electionId)
         .order('display_order')
         .order('id'),
       supabase
         .from('candidates')
-        .select('id, student_id, position_id, approved_at, profiles!candidates_student_id_fkey(full_name, matric_no)')
+        .select('id, student_id, position_id, approved_at, label, profiles!candidates_student_id_fkey(full_name, matric_no)')
         .order('id'),
       supabase
         .from('profiles')

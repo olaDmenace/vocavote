@@ -7,11 +7,13 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
+  addPollOptionSchema,
   createCandidateSchema,
   createElectionSchema,
   createPositionSchema,
   moderateCommentSchema,
   moderatePostSchema,
+  removePollOptionSchema,
   resetUserPasswordSchema,
   setElectionStatusSchema,
   setUserActiveSchema,
@@ -212,6 +214,7 @@ export async function createPosition(
       title: parsed.data.title,
       description: parsed.data.description ?? null,
       display_order: parsed.data.displayOrder,
+      kind: parsed.data.kind,
     })
     .select('id')
     .single()
@@ -222,7 +225,7 @@ export async function createPosition(
     action: 'position.create',
     target_type: 'positions',
     target_id: data.id,
-    meta: { election_id: parsed.data.electionId, title: parsed.data.title },
+    meta: { election_id: parsed.data.electionId, title: parsed.data.title, kind: parsed.data.kind },
   })
 
   revalidatePath(`/elections/${parsed.data.electionId}`)
@@ -334,6 +337,76 @@ export async function revokeCandidate(input: {
     action: 'candidate.revoke',
     target_type: 'candidates',
     target_id: input.candidateId,
+  })
+
+  revalidatePath('/elections')
+  return ok(undefined)
+}
+
+export async function addPollOption(
+  input: z.input<typeof addPollOptionSchema>,
+): Promise<ActionResult<{ id: number }>> {
+  const parsed = addPollOptionSchema.safeParse(input)
+  if (!parsed.success) return err('invalid_input', parsed.error.issues[0]?.message)
+
+  const ctx = await requireAdminClient()
+  if (!ctx.ok) return err('forbidden')
+
+  // A poll option is a labelled, student-less candidate row, auto-approved so it
+  // appears on the ballot immediately.
+  const { data, error } = await ctx.supabase
+    .from('candidates')
+    .insert({
+      position_id: parsed.data.positionId,
+      label: parsed.data.label,
+      student_id: null,
+      approved_at: new Date().toISOString(),
+      approved_by: ctx.user.id,
+    })
+    .select('id')
+    .single()
+  if (error || !data) return err('unknown', error?.message ?? 'Failed to add option.')
+
+  await ctx.supabase.from('audit_log').insert({
+    actor_id: ctx.user.id,
+    action: 'poll_option.add',
+    target_type: 'candidates',
+    target_id: data.id,
+    meta: { position_id: parsed.data.positionId, label: parsed.data.label },
+  })
+
+  revalidatePath('/elections')
+  return ok({ id: data.id })
+}
+
+export async function removePollOption(
+  input: z.input<typeof removePollOptionSchema>,
+): Promise<ActionResult> {
+  const parsed = removePollOptionSchema.safeParse(input)
+  if (!parsed.success) return err('invalid_input')
+
+  const ctx = await requireAdminClient()
+  if (!ctx.ok) return err('forbidden')
+
+  // Only labelled poll options are deletable; votes (ON DELETE NO ACTION) block
+  // removal of an option that already has votes.
+  const { error } = await ctx.supabase
+    .from('candidates')
+    .delete()
+    .eq('id', parsed.data.candidateId)
+    .not('label', 'is', null)
+  if (error) {
+    if (error.code === '23503') {
+      return err('forbidden', 'This option already has votes and cannot be removed.')
+    }
+    return err('unknown', error.message)
+  }
+
+  await ctx.supabase.from('audit_log').insert({
+    actor_id: ctx.user.id,
+    action: 'poll_option.remove',
+    target_type: 'candidates',
+    target_id: parsed.data.candidateId,
   })
 
   revalidatePath('/elections')

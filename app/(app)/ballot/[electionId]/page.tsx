@@ -96,7 +96,7 @@ export default async function BallotPage({ params }: Props) {
     supabase
       .from('positions')
       .select(
-        'id, title, description, display_order, candidates(id, approved_at, student:profiles!candidates_student_id_fkey(id, full_name, matric_no, avatar_path), manifesto_post_id, manifesto:posts!fk_candidate_manifesto(id, title, body))',
+        'id, title, description, display_order, kind, candidates(id, approved_at, label, student:profiles!candidates_student_id_fkey(id, full_name, matric_no, avatar_path), manifesto_post_id, manifesto:posts!fk_candidate_manifesto(id, title, body))',
       )
       .eq('election_id', electionId)
       .order('display_order')
@@ -106,20 +106,24 @@ export default async function BallotPage({ params }: Props) {
 
   const ballotPositions: BallotPosition[] = (positions ?? []).map((p) => {
     const approved = (p.candidates ?? []).filter((c) => c.approved_at !== null)
+    const isPoll = p.kind === 'poll'
     return {
       id: p.id,
       title: p.title,
       description: p.description,
+      isPoll,
       alreadyVoted: votedPositionIds.includes(p.id),
       candidates: approved.map((c) => {
         const student = Array.isArray(c.student) ? c.student[0] : c.student
         const manifesto = Array.isArray(c.manifesto) ? c.manifesto[0] : c.manifesto
         return {
           id: c.id,
-          fullName: student?.full_name ?? 'Unknown',
+          // A poll option has no student — display its text label.
+          fullName: student?.full_name ?? c.label ?? 'Unknown',
           matricNo: student?.matric_no ?? '',
           avatarPath: student?.avatar_path ?? null,
           manifestoTitle: manifesto?.title ?? null,
+          isOption: !student,
         }
       }),
     }

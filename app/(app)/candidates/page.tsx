@@ -45,6 +45,7 @@ export default async function CandidatesPage() {
       'id, title, election_id, display_order, candidates(id, approved_at, student:profiles!candidates_student_id_fkey(id, full_name, matric_no, avatar_path, department))',
     )
     .in('election_id', electionIds)
+    .eq('kind', 'candidates')
     .order('display_order')
     .order('id')
 
